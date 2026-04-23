@@ -1,4 +1,12 @@
-anthropic>=0.25.0
+# Core
+requests>=2.31.0
+
+# OCR
 pytesseract>=0.3.10
 Pillow>=10.0.0
 opencv-python>=4.8.0
+
+# Optional: voice input via Whisper (uncomment if using mic)
+openai-whisper
+sounddevice
+scipy

@@ -3,11 +3,7 @@ classifier.py — Classify a parsed receipt using a local LLM via Ollama.
 No API key needed. Runs fully offline.
 """
 
-import json
-import requests
-
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "llama3.1:8b"  # change to llama3.1:8b if you have more RAM
+from llm import query_json, FAST_MODEL
 
 VALID_CATEGORIES = ["groceries", "dining", "travel", "utilities", "shopping"]
 
@@ -40,52 +36,21 @@ def classify_expense(parsed_data: dict) -> dict:
         total=parsed_data.get("total") or 0.0,
     )
 
-    try:
-        response = requests.post(
-            OLLAMA_URL,
-            json={
-                "model": MODEL,
-                "prompt": prompt,
-                "stream": False,
-                "options": {
-                    "temperature": 0.1,  # low temp = more deterministic output
-                },
-            },
-            timeout=30,
-        )
-        response.raise_for_status()
-        raw = response.json().get("response", "").strip()
+    result = query_json(prompt, model=FAST_MODEL)
 
-        # Strip markdown fences if model adds them anyway
-        if "```" in raw:
-            raw = raw.split("```")[1].replace("json", "").strip()
-
-        result = json.loads(raw)
-
-        if result.get("category") not in VALID_CATEGORIES:
-            result["category"] = "shopping"
-        result["confidence"] = float(result.get("confidence", 0.8))
-        return result
-
-    except requests.exceptions.ConnectionError:
-        raise RuntimeError(
-            "Ollama is not running. Start it with: ollama serve"
-        )
-    except (json.JSONDecodeError, KeyError):
-        # Fallback: try to find a category word anywhere in the raw response
-        raw_lower = raw.lower() if "raw" in dir() else ""
-        for cat in VALID_CATEGORIES:
-            if cat in raw_lower:
-                return {"category": cat, "confidence": 0.6}
-        return {"category": "shopping", "confidence": 0.5}
+    if result.get("category") not in VALID_CATEGORIES:
+        result["category"] = "shopping"
+    result["confidence"] = float(result.get("confidence", 0.8))
+    return result
 
 
 # --- quick test ---
 if __name__ == "__main__":
+    import json
     sample = {
         "merchant": "Albert Heijn",
         "items": ["Halfvolle Melk", "Volkoren Brood", "Sinaasappels"],
         "total": 8.66,
     }
     result = classify_expense(sample)
-    print(result)
+    print(json.dumps(result, indent=2))
