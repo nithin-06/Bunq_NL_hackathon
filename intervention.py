@@ -125,7 +125,7 @@ def _llm_risk_check(action: dict, balances: dict) -> dict:
     """
     recent = mock_bank.get_recent_transactions(limit=3)
     recent_summary = ", ".join(
-        f"{t['type']} €{t.get('amount', 0):.2f}" for t in recent
+        f"{t['type']} €{float(t.get('amount', 0) or 0):.2f}" for t in recent
     ) or "none"
 
     prompt = INTERVENTION_PROMPT.format(

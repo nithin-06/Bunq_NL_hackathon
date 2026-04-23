@@ -49,9 +49,10 @@ def query_json(prompt: str, model: str = REASONING_MODEL, temperature: float = 0
     """
     Same as query() but parses the response as JSON.
     Strips markdown fences if the model wraps its output.
-    Returns empty dict on parse failure.
+    Raises RuntimeError if Ollama is down (never silently returns empty on connection failure).
+    Returns empty dict only if the model's output genuinely can't be parsed as JSON.
     """
-    raw = query(prompt, model=model, temperature=temperature)
+    raw = query(prompt, model=model, temperature=temperature)  # raises RuntimeError if Ollama is down
 
     # Strip ```json ... ``` fences
     if "```" in raw:

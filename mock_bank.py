@@ -1,28 +1,109 @@
 """
-mock_bank.py — Simulated banking wrapper.
+mock_bank.py — CSV-backed banking wrapper.
 
-We don't have the real bank's codebase, so this simulates the API surface
-a real integration would call. Every function prints what it's "doing" so
-the demo is clear, then returns structured data as if a real bank responded.
+All state persists to ./data/ CSVs so:
+  - transactions survive between runs
+  - edit CSVs directly to set up test scenarios
+  - dashboard reads real historical data
 
-In production: replace each function body with the actual SDK/API call.
+Files written:
+  data/account.csv       — checking, savings balances
+  data/portfolio.csv     — investment holdings
+  data/transactions.csv  — full transaction log (append-only)
 """
 
-import random
+import csv
+import os
 from datetime import datetime
+from pathlib import Path
+
+DATA_DIR         = Path(__file__).parent / "data"
+ACCOUNT_CSV      = DATA_DIR / "account.csv"
+PORTFOLIO_CSV    = DATA_DIR / "portfolio.csv"
+TRANSACTIONS_CSV = DATA_DIR / "transactions.csv"
+
+TX_FIELDS = [
+    "timestamp", "type", "merchant", "category",
+    "instrument", "amount", "units_purchased",
+    "price_per_unit", "balance_after", "note",
+]
+
 
 # ---------------------------------------------------------------------------
-# Simulated account state (in-memory, resets each run)
+# Init — seed CSVs if they don't exist
 # ---------------------------------------------------------------------------
-_STATE = {
-    "balance": 4_250.00,
-    "savings": 1_800.00,
-    "investment_portfolio": {
-        "ETF_SP500": {"units": 5.2, "price_per_unit": 410.0},
-        "ETF_BONDS": {"units": 10.0, "price_per_unit": 95.0},
-    },
-    "transaction_log": [],
-}
+
+def _init():
+    DATA_DIR.mkdir(exist_ok=True)
+
+    if not ACCOUNT_CSV.exists():
+        with open(ACCOUNT_CSV, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=["key", "value"])
+            w.writeheader()
+            w.writerows([
+                {"key": "checking", "value": 4250.00},
+                {"key": "savings",  "value": 1800.00},
+                {"key": "currency", "value": "EUR"},
+            ])
+
+    if not PORTFOLIO_CSV.exists():
+        with open(PORTFOLIO_CSV, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=["instrument", "units", "price_per_unit"])
+            w.writeheader()
+            w.writerows([
+                {"instrument": "ETF_SP500", "units": 5.2,  "price_per_unit": 410.0},
+                {"instrument": "ETF_BONDS", "units": 10.0, "price_per_unit": 95.0},
+            ])
+
+    if not TRANSACTIONS_CSV.exists():
+        with open(TRANSACTIONS_CSV, "w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=TX_FIELDS)
+            w.writeheader()
+
+_init()
+
+
+# ---------------------------------------------------------------------------
+# CSV helpers
+# ---------------------------------------------------------------------------
+
+def _read_account() -> dict:
+    with open(ACCOUNT_CSV) as f:
+        return {row["key"]: row["value"] for row in csv.DictReader(f)}
+
+def _write_account(data: dict):
+    with open(ACCOUNT_CSV, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["key", "value"])
+        w.writeheader()
+        for k, v in data.items():
+            w.writerow({"key": k, "value": v})
+
+def _read_portfolio() -> dict:
+    with open(PORTFOLIO_CSV) as f:
+        return {
+            row["instrument"]: {
+                "units": float(row["units"]),
+                "price_per_unit": float(row["price_per_unit"]),
+            }
+            for row in csv.DictReader(f)
+        }
+
+def _write_portfolio(portfolio: dict):
+    with open(PORTFOLIO_CSV, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["instrument", "units", "price_per_unit"])
+        w.writeheader()
+        for instrument, d in portfolio.items():
+            w.writerow({"instrument": instrument, "units": round(d["units"], 4), "price_per_unit": d["price_per_unit"]})
+
+def _append_tx(tx: dict):
+    with open(TRANSACTIONS_CSV, "a", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=TX_FIELDS, extrasaction="ignore")
+        w.writerow(tx)
+
+def _read_tx(limit: int = None) -> list[dict]:
+    with open(TRANSACTIONS_CSV) as f:
+        rows = list(csv.DictReader(f))
+    return rows[-limit:] if limit else rows
 
 
 # ---------------------------------------------------------------------------
@@ -30,108 +111,123 @@ _STATE = {
 # ---------------------------------------------------------------------------
 
 def get_balance() -> dict:
-    """Return current account balances."""
-    portfolio_value = sum(
-        v["units"] * v["price_per_unit"]
-        for v in _STATE["investment_portfolio"].values()
-    )
+    acc = _read_account()
+    portfolio = _read_portfolio()
+    portfolio_value = sum(v["units"] * v["price_per_unit"] for v in portfolio.values())
     return {
-        "checking": _STATE["balance"],
-        "savings": _STATE["savings"],
+        "checking":    round(float(acc.get("checking", 0)), 2),
+        "savings":     round(float(acc.get("savings",  0)), 2),
         "investments": round(portfolio_value, 2),
-        "currency": "EUR",
+        "currency":    acc.get("currency", "EUR"),
     }
 
+def get_portfolio() -> dict:
+    return _read_portfolio()
 
 def get_recent_transactions(limit: int = 5) -> list[dict]:
-    """Return the most recent transactions."""
-    return _STATE["transaction_log"][-limit:]
+    return _read_tx(limit=limit)
+
+def get_all_transactions() -> list[dict]:
+    return _read_tx()
 
 
 def invest(amount: float, instrument: str = "ETF_SP500") -> dict:
-    """
-    Execute a mock investment order.
+    acc = _read_account()
+    checking = float(acc["checking"])
 
-    Args:
-        amount: Amount in EUR to invest.
-        instrument: Which instrument to buy (ETF_SP500, ETF_BONDS, CRYPTO_BTC).
-
-    Returns:
-        Transaction receipt dict.
-    """
     if amount <= 0:
         return {"success": False, "reason": "Amount must be positive."}
+    if amount > checking:
+        return {"success": False, "reason": f"Insufficient funds. Balance: €{checking:.2f}, requested: €{amount:.2f}"}
 
-    if amount > _STATE["balance"]:
-        return {
-            "success": False,
-            "reason": f"Insufficient funds. Balance: €{_STATE['balance']:.2f}, requested: €{amount:.2f}",
-        }
-
-    # Simulate price + units purchased
     prices = {"ETF_SP500": 410.0, "ETF_BONDS": 95.0, "CRYPTO_BTC": 62_000.0}
     price = prices.get(instrument, 100.0)
     units = round(amount / price, 4)
+    new_balance = round(checking - amount, 2)
 
-    # Deduct from balance
-    _STATE["balance"] -= amount
-    _STATE["balance"] = round(_STATE["balance"], 2)
+    acc["checking"] = new_balance
+    _write_account(acc)
 
-    # Add to portfolio
-    if instrument not in _STATE["investment_portfolio"]:
-        _STATE["investment_portfolio"][instrument] = {"units": 0, "price_per_unit": price}
-    _STATE["investment_portfolio"][instrument]["units"] += units
-    _STATE["investment_portfolio"][instrument]["units"] = round(
-        _STATE["investment_portfolio"][instrument]["units"], 4
-    )
+    portfolio = _read_portfolio()
+    if instrument not in portfolio:
+        portfolio[instrument] = {"units": 0, "price_per_unit": price}
+    portfolio[instrument]["units"] = round(portfolio[instrument]["units"] + units, 4)
+    _write_portfolio(portfolio)
 
     tx = {
-        "type": "investment",
-        "instrument": instrument,
-        "amount": amount,
-        "units_purchased": units,
-        "price_per_unit": price,
-        "timestamp": datetime.now().isoformat(),
-        "new_balance": _STATE["balance"],
+        "timestamp": datetime.now().isoformat(), "type": "investment",
+        "merchant": "", "category": "investment", "instrument": instrument,
+        "amount": amount, "units_purchased": units, "price_per_unit": price,
+        "balance_after": new_balance, "note": f"Bought {units} units of {instrument}",
     }
-    _STATE["transaction_log"].append(tx)
-
+    _append_tx(tx)
     print(f"[BANK] ✅ Invested €{amount:.2f} → {units} units of {instrument} @ €{price:.2f}/unit")
     return {"success": True, "transaction": tx}
 
 
 def transfer_to_savings(amount: float) -> dict:
-    """Move money from checking to savings."""
-    if amount > _STATE["balance"]:
+    acc = _read_account()
+    checking = float(acc["checking"])
+    savings  = float(acc["savings"])
+
+    if amount > checking:
         return {"success": False, "reason": "Insufficient funds in checking."}
 
-    _STATE["balance"] -= amount
-    _STATE["savings"] += amount
-    _STATE["balance"] = round(_STATE["balance"], 2)
-    _STATE["savings"] = round(_STATE["savings"], 2)
+    new_checking = round(checking - amount, 2)
+    new_savings  = round(savings + amount,  2)
+    acc["checking"] = new_checking
+    acc["savings"]  = new_savings
+    _write_account(acc)
 
     tx = {
-        "type": "savings_transfer",
-        "amount": amount,
-        "timestamp": datetime.now().isoformat(),
-        "new_checking": _STATE["balance"],
-        "new_savings": _STATE["savings"],
+        "timestamp": datetime.now().isoformat(), "type": "savings_transfer",
+        "merchant": "", "category": "savings", "instrument": "",
+        "amount": amount, "units_purchased": "", "price_per_unit": "",
+        "balance_after": new_checking, "note": f"Moved €{amount:.2f} to savings",
     }
-    _STATE["transaction_log"].append(tx)
-
+    _append_tx(tx)
     print(f"[BANK] ✅ Transferred €{amount:.2f} to savings")
     return {"success": True, "transaction": tx}
 
 
 def log_expense(merchant: str, amount: float, category: str) -> dict:
-    """Log a receipt-based expense (called by receipt pipeline)."""
+    acc = _read_account()
+    checking = float(acc["checking"])
+    new_balance = round(checking - amount, 2)
+    acc["checking"] = new_balance
+    _write_account(acc)
+
     tx = {
-        "type": "expense",
-        "merchant": merchant,
-        "amount": amount,
-        "category": category,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": datetime.now().isoformat(), "type": "expense",
+        "merchant": merchant, "category": category, "instrument": "",
+        "amount": amount, "units_purchased": "", "price_per_unit": "",
+        "balance_after": new_balance, "note": f"{category} at {merchant}",
     }
-    _STATE["transaction_log"].append(tx)
+    _append_tx(tx)
     print(f"[BANK] ✅ Logged €{amount:.2f} expense at {merchant} [{category}]")
     return {"success": True, "transaction": tx}
+
+
+def reset_to_defaults():
+    """Wipe CSVs and reinitialise with seed data. Use before a fresh demo."""
+    for p in [ACCOUNT_CSV, PORTFOLIO_CSV, TRANSACTIONS_CSV]:
+        if p.exists():
+            p.unlink()
+    _init()
+    print("[BANK] 🔄 Database reset to defaults.")
+
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+if __name__ == "__main__":
+    import json, sys
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "balance"
+    if cmd == "balance":
+        print(json.dumps(get_balance(), indent=2))
+    elif cmd == "txns":
+        for t in get_all_transactions(): print(t)
+    elif cmd == "portfolio":
+        print(json.dumps(get_portfolio(), indent=2))
+    elif cmd == "reset":
+        reset_to_defaults()

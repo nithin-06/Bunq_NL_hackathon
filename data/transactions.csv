@@ -1,0 +1,2 @@
+timestamp,type,merchant,category,instrument,amount,units_purchased,price_per_unit,balance_after,note
+2026-04-23T23:12:06.231712,investment,,investment,CRYPTO_BTC,400.0,0.0065,62000.0,3850.0,Bought 0.0065 units of CRYPTO_BTC

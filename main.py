@@ -1,23 +1,53 @@
 """
-main.py — Financial AI Assistant entry point.
+main.py — AI Financial Assistant entry point.
 
-Three flows, one program:
-
-  1. Receipt scan      → python main.py receipt receipt.jpg
-  2. Voice/text invest → python main.py invest "Invest my 500 euro bonus in ETFs"
-  3. Demo all three    → python main.py demo
-
-Architecture:
-  Voice command  →  parse intent  →  [INTERVENTION CHECK]  →  execute  →  response
-  Receipt image  →  OCR → parse  →  classify  →  insight   →  log      →  response
+Commands:
+  python main.py demo                        Full scripted demo (no mic/image needed)
+  python main.py invest "<text command>"     Process a typed investment command
+  python main.py mic                         Record from microphone → invest
+  python main.py receipt <image.jpg>         Scan a receipt image
+  python main.py dashboard                   Generate + open HTML dashboard
+  python main.py reset                       Reset CSV database to defaults
+  python main.py balance                     Print current balances
 """
 
-import sys
 import json
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(__file__))
+
 
 # ---------------------------------------------------------------------------
-# Shared state — in a real app this would be a DB or session store
+# Ollama health check — fail fast and clearly
 # ---------------------------------------------------------------------------
+
+def _check_ollama():
+    import requests
+    try:
+        r = requests.get("http://localhost:11434/api/tags", timeout=3)
+        if r.status_code == 200:
+            return True
+    except Exception:
+        pass
+
+    print("""
+╔══════════════════════════════════════════════════════╗
+║  Ollama is not running.                              ║
+║                                                      ║
+║  Fix:  open a new terminal and run:                  ║
+║        ollama serve                                  ║
+║                                                      ║
+║  Then run your command again.                        ║
+╚══════════════════════════════════════════════════════╝
+""")
+    sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Shared session state
+# ---------------------------------------------------------------------------
+
 from insight import UserContext
 
 SESSION_CONTEXT = UserContext(
@@ -30,23 +60,21 @@ SESSION_CONTEXT = UserContext(
     }
 )
 
+
 # ---------------------------------------------------------------------------
 # Flow 1: Receipt scan
 # ---------------------------------------------------------------------------
 
 def handle_receipt(image_path: str):
-    import sys, os
-    sys.path.insert(0, os.path.dirname(__file__))
-
     from ocr import extract_text
     from parser import parse_receipt
     from classifier import classify_expense
     from insight import generate_insight
     import mock_bank
 
-    print(f"\n{'='*50}")
+    print(f"\n{'='*52}")
     print(f"  RECEIPT SCAN: {image_path}")
-    print(f"{'='*50}")
+    print(f"{'='*52}")
 
     print("\n[1/4] Running OCR...")
     raw_text = extract_text(image_path)
@@ -57,20 +85,17 @@ def handle_receipt(image_path: str):
     print(f"  → merchant: {parsed['merchant']}, total: €{parsed.get('total', 0):.2f}")
     print(f"  → items: {parsed['items']}")
 
-    print("[3/4] Classifying expense...")
+    print("[3/4] Classifying expense (LLM)...")
     classification = classify_expense(parsed)
     category = classification["category"]
-    print(f"  → category: {category} (confidence: {classification['confidence']:.2f})")
+    print(f"  → {category} (confidence {classification['confidence']:.2f})")
 
     print("[4/4] Generating insight...")
     insight = generate_insight(parsed, category, SESSION_CONTEXT)
-
-    # Update session state
     SESSION_CONTEXT.weekly_spent[category] = (
         SESSION_CONTEXT.weekly_spent.get(category, 0.0) + (parsed.get("total") or 0.0)
     )
 
-    # Log to mock bank
     mock_bank.log_expense(
         merchant=parsed.get("merchant", "Unknown"),
         amount=parsed.get("total") or 0.0,
@@ -84,15 +109,12 @@ def handle_receipt(image_path: str):
         "message": insight["message"],
         "risk": insight["risk"],
         "risk_reason": insight["risk_reason"],
-        "details": {
-            "merchant": parsed.get("merchant", "Unknown"),
-            "items": parsed.get("items", []),
-        },
+        "details": {"merchant": parsed.get("merchant", "Unknown"), "items": parsed.get("items", [])},
     }
 
-    print(f"\n{'='*50}")
+    print(f"\n{'='*52}")
     print("  RESULT")
-    print(f"{'='*50}")
+    print(f"{'='*52}")
     print(json.dumps(output, indent=2))
     return output
 
@@ -105,18 +127,16 @@ def handle_invest(command: str):
     from voice_invest import parse_investment_intent, execute_investment_command
     from intervention import evaluate
 
-    print(f"\n{'='*50}")
+    print(f"\n{'='*52}")
     print(f"  VOICE COMMAND: '{command}'")
-    print(f"{'='*50}")
+    print(f"{'='*52}")
 
-    # Parse intent first
-    print("\n[1/3] Parsing intent...")
+    print("\n[1/3] Parsing intent (LLM)...")
     parsed_intent = parse_investment_intent(command)
-    print(f"  → {parsed_intent}")
+    print(f"  → intent={parsed_intent['intent']}  amount={parsed_intent['amount']}  instrument={parsed_intent.get('instrument')}")
 
-    # Intervention check BEFORE executing
     if parsed_intent["intent"] in ("invest", "save") and parsed_intent["amount"]:
-        print("\n[2/3] Running intervention check...")
+        print("\n[2/3] Running intervention check (LLM)...")
         intervention = evaluate(parsed_intent)
         level = intervention["level"]
         print(f"  → level: {level}")
@@ -124,7 +144,7 @@ def handle_invest(command: str):
         if level == "block":
             print(f"\n🚨 BLOCKED: {intervention['reason']}")
             print(f"   Suggestion: {intervention['suggestion']}")
-            return {
+            output = {
                 "intent": parsed_intent["intent"],
                 "action_taken": "blocked_by_intervention",
                 "amount": parsed_intent["amount"],
@@ -134,75 +154,122 @@ def handle_invest(command: str):
                 "risk": True,
                 "risk_reason": intervention["reason"],
             }
+            print(json.dumps(output, indent=2))
+            return output
 
         if level == "warn":
             print(f"\n⚠️  WARNING: {intervention['reason']}")
             print(f"   Suggestion: {intervention['suggestion']}")
-            # In a real app: prompt the user to confirm. For demo we proceed.
-            print("   [DEMO MODE: proceeding despite warning]")
+            try:
+                confirm = input("\n   Proceed anyway? (yes / no): ").strip().lower()
+            except EOFError:
+                confirm = "no"
+            if confirm not in ("yes", "y"):
+                print("   Aborted.")
+                output = {
+                    "intent": parsed_intent["intent"],
+                    "action_taken": "aborted_by_user",
+                    "amount": parsed_intent["amount"],
+                    "instrument": parsed_intent.get("instrument"),
+                    "result": {},
+                    "message": f"Action cancelled. {intervention['suggestion']}",
+                    "risk": True,
+                    "risk_reason": intervention["reason"],
+                }
+                print(json.dumps(output, indent=2))
+                return output
+            print("   Confirmed. Proceeding...")
     else:
-        print("\n[2/3] No intervention needed for this intent.")
+        print("\n[2/3] No intervention needed.")
 
-    # Execute
-    print("\n[3/3] Executing command...")
+    print("\n[3/3] Executing...")
     result = execute_investment_command(command)
 
-    print(f"\n{'='*50}")
+    print(f"\n{'='*52}")
     print("  RESULT")
-    print(f"{'='*50}")
+    print(f"{'='*52}")
     print(json.dumps(result, indent=2))
     return result
 
 
 # ---------------------------------------------------------------------------
-# Flow 3: Full demo (no real image/voice needed)
+# Flow 3: Microphone → transcribe → invest
+# ---------------------------------------------------------------------------
+
+def handle_mic():
+    from voice_invest import record_from_mic, transcribe_audio
+
+    print("\n[MIC] Starting microphone input...")
+    duration = 6
+    try:
+        duration = int(input("Recording duration in seconds [6]: ").strip() or 6)
+    except (ValueError, EOFError):
+        pass
+
+    audio = record_from_mic(duration_seconds=duration)
+    transcript = transcribe_audio(audio)
+    print(f"\n[WHISPER] Heard: '{transcript}'")
+
+    if not transcript.strip():
+        print("[ERROR] Nothing transcribed. Check your microphone and try again.")
+        return
+
+    handle_invest(transcript)
+
+
+# ---------------------------------------------------------------------------
+# Flow 4: Dashboard
+# ---------------------------------------------------------------------------
+
+def handle_dashboard():
+    import dashboard as dash
+    dash.main()
+
+
+# ---------------------------------------------------------------------------
+# Flow 5: Scripted demo (no image / mic needed)
 # ---------------------------------------------------------------------------
 
 def handle_demo():
-    from voice_invest import execute_investment_command
-    from intervention import evaluate
     import mock_bank
 
     print("\n" + "="*60)
-    print("  DEMO: AI Financial Assistant")
+    print("  DEMO — AI Financial Assistant")
     print("="*60)
 
-    # Show initial balance
-    balances = mock_bank.get_balance()
-    print(f"\n📊 Starting balance: €{balances['checking']:.2f} checking | €{balances['savings']:.2f} savings")
+    bal = mock_bank.get_balance()
+    print(f"\n📊 Starting: checking €{bal['checking']:.2f}  |  savings €{bal['savings']:.2f}  |  investments €{bal['investments']:.2f}")
 
-    # --- Demo 1: Normal investment ---
+    # Demo 1: normal investment
     print("\n" + "-"*60)
-    print("DEMO 1: Normal voice investment command")
-    print("-"*60)
+    print("DEMO 1: Normal investment command")
     handle_invest("Invest my 500 euro bonus in index funds")
 
-    # --- Demo 2: Risky investment (intervention triggers) ---
+    # Demo 2: risky investment → intervention
     print("\n" + "-"*60)
-    print("DEMO 2: Risky command — intervention should fire")
-    print("-"*60)
+    print("DEMO 2: Risky command — should trigger intervention")
     handle_invest("Invest 3900 euros in bitcoin")
 
-    # --- Demo 3: Simulated receipt (no OCR needed) ---
+    # Demo 3: receipt (mocked — no image needed)
     print("\n" + "-"*60)
-    print("DEMO 3: Simulated receipt scan (mocked, no image needed)")
-    print("-"*60)
-    _demo_receipt_without_image()
+    print("DEMO 3: Simulated receipt scan (no image file needed)")
+    _demo_mock_receipt()
 
-    # Final balance
-    balances = mock_bank.get_balance()
+    # Final state
+    bal = mock_bank.get_balance()
     print("\n" + "="*60)
-    print(f"📊 Final balance: €{balances['checking']:.2f} checking | €{balances['savings']:.2f} savings")
+    print(f"📊 Final:    checking €{bal['checking']:.2f}  |  savings €{bal['savings']:.2f}  |  investments €{bal['investments']:.2f}")
     print("="*60)
 
+    print("\n💡 Run  python main.py dashboard  to see the visual breakdown.")
 
-def _demo_receipt_without_image():
-    """Simulate a receipt scan without needing a real image or Tesseract."""
+
+def _demo_mock_receipt():
+    """Simulate a full receipt scan without needing a real image or Tesseract."""
     from classifier import classify_expense
     from insight import generate_insight
     import mock_bank
 
-    # Simulated parsed receipt (as if OCR + parser already ran)
     parsed = {
         "merchant": "Albert Heijn",
         "items": ["Halfvolle Melk", "Volkoren Brood", "Kaas Jong 500g"],
@@ -214,7 +281,7 @@ def _demo_receipt_without_image():
 
     classification = classify_expense(parsed)
     category = classification["category"]
-    print(f"  Classified as: {category} (confidence: {classification['confidence']:.2f})")
+    print(f"  Classified: {category} ({classification['confidence']:.2f})")
 
     insight = generate_insight(parsed, category, SESSION_CONTEXT)
     mock_bank.log_expense(parsed["merchant"], parsed["total"], category)
@@ -233,26 +300,35 @@ def _demo_receipt_without_image():
 # Entry point
 # ---------------------------------------------------------------------------
 
-USAGE = """
+USAGE = """\
 Usage:
-  python main.py demo                          # Run full demo (no image/mic needed)
-  python main.py invest "<command>"            # Process a voice/text investment command
-  python main.py receipt <image_path>          # Scan a receipt image
+  python main.py demo                      Run full scripted demo
+  python main.py invest "<text>"           Typed investment command
+  python main.py mic                       Speak into microphone
+  python main.py receipt <image.jpg>       Scan receipt image
+  python main.py dashboard                 Generate + open HTML dashboard
+  python main.py balance                   Print current account balances
+  python main.py reset                     Reset CSV database to defaults
 
 Examples:
-  python main.py demo
   python main.py invest "Invest my 500 euro bonus in ETFs"
-  python main.py invest "Save 200 euros from my bonus"
-  python main.py invest "Invest 4000 euros in crypto"   # triggers intervention
+  python main.py invest "Save 200 euros"
+  python main.py invest "Invest 3900 euros in crypto"   ← intervention fires
+  python main.py mic
   python main.py receipt receipt.jpg
+  python main.py dashboard
 """
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(USAGE)
-        sys.exit(1)
+        sys.exit(0)
 
     mode = sys.argv[1].lower()
+
+    # Commands that need Ollama
+    if mode in ("demo", "invest", "mic", "receipt"):
+        _check_ollama()
 
     if mode == "demo":
         handle_demo()
@@ -261,8 +337,10 @@ if __name__ == "__main__":
         if len(sys.argv) < 3:
             print("Error: provide a command string.\nExample: python main.py invest \"Invest 500 euros in ETFs\"")
             sys.exit(1)
-        command = " ".join(sys.argv[2:])
-        handle_invest(command)
+        handle_invest(" ".join(sys.argv[2:]))
+
+    elif mode == "mic":
+        handle_mic()
 
     elif mode == "receipt":
         if len(sys.argv) < 3:
@@ -270,7 +348,22 @@ if __name__ == "__main__":
             sys.exit(1)
         handle_receipt(sys.argv[2])
 
+    elif mode == "dashboard":
+        handle_dashboard()
+
+    elif mode == "balance":
+        import mock_bank
+        bal = mock_bank.get_balance()
+        print(f"\nChecking:    €{bal['checking']:.2f}")
+        print(f"Savings:     €{bal['savings']:.2f}")
+        print(f"Investments: €{bal['investments']:.2f}")
+        print(f"Net worth:   €{bal['checking']+bal['savings']+bal['investments']:.2f}")
+
+    elif mode == "reset":
+        import mock_bank
+        mock_bank.reset_to_defaults()
+
     else:
-        print(f"Unknown mode: {mode}")
+        print(f"Unknown command: {mode}\n")
         print(USAGE)
         sys.exit(1)
