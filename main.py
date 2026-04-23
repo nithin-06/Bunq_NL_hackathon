@@ -80,6 +80,8 @@ def handle_receipt(image_path: str):
     raw_text = extract_text(image_path)
     print(f"  → {len(raw_text)} chars extracted")
 
+    print("\n[DEBUG OCR OUTPUT]\n", raw_text)
+
     print("[2/4] Parsing receipt...")
     parsed = parse_receipt(raw_text)
     print(f"  → merchant: {parsed['merchant']}, total: €{parsed.get('total', 0):.2f}")
