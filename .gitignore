@@ -20,3 +20,9 @@ Thumbs.db
 
 # PaddleOCR models (optional but recommended)
 .paddleocr/
+
+# bunq apis
+API.txt
+bunq_private_key.pem
+bunq_public_key.pem
+bunq_state.json

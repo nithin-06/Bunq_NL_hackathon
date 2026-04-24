@@ -4,3 +4,20 @@ timestamp,type,merchant,category,instrument,amount,units_purchased,price_per_uni
 2026-04-24T02:51:32.336365,expense,Kruidvat,groceries,,0.0,,,3830.0,groceries at Kruidvat
 2026-04-24T02:55:10.051472,expense,Primark,shopping,,39.0,,,3791.0,shopping at Primark
 2026-04-24T02:55:33.048758,expense,Jumbo,groceries,,0.0,,,3791.0,groceries at Jumbo
+2026-04-24T11:34:22.730062,investment,,investment,ETF_SP500,500.0,1.2195,410.0,3291.0,Bought 1.2195 units of ETF_SP500
+2026-04-24T11:35:55.379419,expense,Primark,shopping,,39.0,,,3252.0,shopping at Primark
+2026-04-24 09:35:55.076412,expense,,bunq_payment,,39.0,,,,shopping at Primark
+2026-04-24 09:34:22.233314,expense,,bunq_payment,,500.0,,,,Investment: ETF_SP500
+2026-04-24 01:13:20.482336,expense,,bunq_payment,,0.1,,,,Test payment from hackathon app
+2026-04-24 01:13:02.663669,income,,bunq_payment,,500.0,,,,Top up sandbox account
+2026-04-24 01:07:50.219559,expense,,bunq_payment,,0.1,,,,Test payment from hackathon app
+2026-04-24 01:07:19.156989,income,,bunq_payment,,500.0,,,,Top up sandbox account
+2026-04-24 01:07:12.204638,income,,bunq_payment,,500.0,,,,Top up sandbox account
+2026-04-24 09:35:55.076412,expense,,bunq_payment,,39.0,,,,shopping at Primark
+2026-04-24 09:34:22.233314,expense,,bunq_payment,,500.0,,,,Investment: ETF_SP500
+2026-04-24 01:13:20.482336,expense,,bunq_payment,,0.1,,,,Test payment from hackathon app
+2026-04-24 01:13:02.663669,income,,bunq_payment,,500.0,,,,Top up sandbox account
+2026-04-24 01:07:50.219559,expense,,bunq_payment,,0.1,,,,Test payment from hackathon app
+2026-04-24 01:07:19.156989,income,,bunq_payment,,500.0,,,,Top up sandbox account
+2026-04-24 01:07:12.204638,income,,bunq_payment,,500.0,,,,Top up sandbox account
+2026-04-24T11:58:29.019688,investment,,investment,ETF_SP500,200.0,0.4878,410.0,760.8,Bought 0.4878 units of ETF_SP500

@@ -211,4 +211,4 @@ if __name__ == "__main__":
     for action in test_actions:
         print(f"\n--- Testing: {action} ---")
         result = evaluate(action)
-        print(json.dumps(result, indent=2))
+        print(json.dumps(result, indent=2, ensure_ascii=False))

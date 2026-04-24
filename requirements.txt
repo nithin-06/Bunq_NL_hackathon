@@ -1,14 +1,17 @@
 # Core
 requests>=2.31.0
 
-# OCR — PaddleOCR replaces Tesseract
+# OCR
 paddleocr>=2.7.0
-paddlepaddle>=2.5.0   # CPU version; use paddlepaddle-gpu if you have CUDA
+paddlepaddle>=2.5.0
 rapidfuzz>=3.0.0
 opencv-python>=4.8.0
 Pillow>=10.0.0
 
-# Voice / microphone transcription
+# Voice
 openai-whisper
 sounddevice
 scipy
+
+# bunq API signing
+cryptography>=41.0.0

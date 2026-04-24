@@ -114,9 +114,11 @@ Current account balance: €{balance:.2f}
 
 Respond ONLY with JSON, no explanation:
 {{
-  "intent": "invest" | "save" | "check_balance" | "unknown",
+  "intent": "invest" | "save" | "send" | "check_balance" | "unknown",
   "amount": <float or null>,
   "instrument": "ETF_SP500" | "ETF_BONDS" | "CRYPTO_BTC" | null,
+  "recipient_email": "<email if mentioned, else null>",
+  "recipient_name": "<name if mentioned, else null>",
   "raw_instrument_mention": "<what the user said>"
 }}
 
@@ -127,17 +129,24 @@ Mapping rules:
 - If instrument not mentioned → ETF_SP500 (default)
 - "save", "put aside", "set aside" → intent = save
 - "invest", "buy", "put into" → intent = invest
-- "balance", "how much" → intent = check_balance"""
+- "send", "transfer", "pay", "give" → intent = send
+- "balance", "how much do I have" → intent = check_balance
+- "sugardaddy", "sugar daddy" → recipient_email = "sugardaddy@bunq.com", recipient_name = "Sugar Daddy"
+- If no recipient mentioned for send → recipient_email = "sugardaddy@bunq.com" (sandbox default)"""
 
 
-def parse_investment_intent(command: str) -> dict:
-    balance = mock_bank.get_balance()["checking"]
+def parse_investment_intent(command: str, bank=None) -> dict:
+    if bank is None:
+        import mock_bank as bank
+    balance = bank.get_balance()["checking"]
     prompt = INTENT_PROMPT.format(command=command, balance=balance)
     result = query_json(prompt, model=REASONING_MODEL)
 
     result.setdefault("intent", "unknown")
     result.setdefault("amount", None)
     result.setdefault("instrument", "ETF_SP500")
+    result.setdefault("recipient_email", "sugardaddy@bunq.com")
+    result.setdefault("recipient_name", "Sugar Daddy")
     result.setdefault("raw_instrument_mention", "")
     return result
 

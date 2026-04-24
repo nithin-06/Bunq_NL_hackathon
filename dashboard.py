@@ -23,10 +23,24 @@ import mock_bank
 OUT_PATH = Path(__file__).parent / "dashboard.html"
 
 
-def _build_data():
-    balances    = mock_bank.get_balance()
-    portfolio   = mock_bank.get_portfolio()
-    all_tx      = mock_bank.get_all_transactions()
+def _build_data(live: bool = False):
+    if live:
+        # Live mode: pull EVERYTHING from bunq, no mock CSV mixing
+        try:
+            import bunq_bridge
+            balances = bunq_bridge.get_balance()
+            all_tx   = bunq_bridge.get_all_transactions()   # pure bunq only
+            print(f"[DASHBOARD] Live bunq: €{balances['checking']:.2f} checking, {len(all_tx)} transactions")
+        except Exception as e:
+            print(f"[DASHBOARD] ⚠️  bunq fetch failed ({e}) — showing empty dashboard")
+            balances = {"checking": 0, "savings": 0, "investments": 0, "currency": "EUR"}
+            all_tx   = []
+    else:
+        # Local mode: pure CSV mock data
+        balances = mock_bank.get_balance()
+        all_tx   = mock_bank.get_all_transactions()
+
+    portfolio = mock_bank.get_portfolio()  # always local — bunq has no investment accounts
 
     # Expense totals by category
     category_totals = defaultdict(float)
@@ -484,8 +498,8 @@ const txType = {{ expense:'expense', investment:'investment', savings_transfer:'
 </html>"""
 
 
-def main():
-    data = _build_data()
+def main(live: bool = False):
+    data = _build_data(live=live)
     html = generate_html(data)
     OUT_PATH.write_text(html, encoding="utf-8")
     print(f"[DASHBOARD] Generated → {OUT_PATH}")
@@ -496,4 +510,5 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    live = "--live" in sys.argv
+    main(live=live)
