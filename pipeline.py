@@ -1,13 +1,14 @@
 """
 pipeline.py — Full receipt intelligence pipeline.
 
-Image → OCR → Parse → Classify → Insight → Final JSON
+Image → OCR (PaddleOCR) → Parse → Classify → Insight → Final JSON
 """
 
 import json
 from typing import Optional
-from ocr import extract_text
-from parser import parse_receipt
+
+from ocr import run_ocr_full
+from parser import parse_receipt_paddle
 from classifier import classify_expense
 from insight import generate_insight, UserContext
 
@@ -19,41 +20,22 @@ def run_pipeline(
 ) -> dict:
     """
     Full pipeline: receipt image → structured financial output.
-
-    Args:
-        image_path: Path to the receipt image.
-        user_context: Optional budget/spending state for insight layer.
-        verbose: Print intermediate steps if True.
-
-    Returns:
-        Final JSON matching the team contract:
-        {
-            "intent": "expense_tracking",
-            "amount": float,
-            "category": str,
-            "message": str,
-            "risk": bool,
-            "risk_reason": str | None,
-            "details": {
-                "merchant": str,
-                "items": list[str],
-            }
-        }
     """
 
-    # --- Step 1: OCR ---
+    # --- Step 1: OCR (PaddleOCR, multi-variant) ---
     if verbose:
-        print(f"[1/4] Running OCR on: {image_path}")
-    raw_text = extract_text(image_path)
+        print(f"[1/4] Running PaddleOCR on: {image_path}")
+    lines, results, image_shape = run_ocr_full(image_path)
     if verbose:
-        print(f"  → {len(raw_text)} chars extracted")
+        print(f"  → {len(lines)} lines extracted")
 
-    # --- Step 2: Parse ---
+    # --- Step 2: Parse (bounding-box aware) ---
     if verbose:
-        print("[2/4] Parsing receipt text...")
-    parsed = parse_receipt(raw_text)
+        print("[2/4] Parsing receipt...")
+    parsed = parse_receipt_paddle(lines, results, image_shape)
     if verbose:
-        print(f"  → {parsed}")
+        print(f"  → merchant: {parsed['merchant']}, total: {parsed.get('total')}, discount: {parsed.get('discount')}")
+        print(f"  → items: {parsed['items']}")
 
     # --- Step 3: Classify ---
     if verbose:
@@ -82,6 +64,7 @@ def run_pipeline(
         "details": {
             "merchant": parsed.get("merchant", "Unknown"),
             "items": parsed.get("items", []),
+            "discount": parsed.get("discount"),
         },
     }
 
@@ -99,9 +82,7 @@ if __name__ == "__main__":
     image_path = sys.argv[1]
     verbose = "--verbose" in sys.argv
 
-    # Demo context: already spent €55 on groceries this week
     ctx = UserContext(weekly_spent={"groceries": 55.0})
-
     result = run_pipeline(image_path, user_context=ctx, verbose=verbose)
     print("\n=== FINAL OUTPUT ===")
     print(json.dumps(result, indent=2))

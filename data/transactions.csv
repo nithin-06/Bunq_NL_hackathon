@@ -1,2 +1,6 @@
 timestamp,type,merchant,category,instrument,amount,units_purchased,price_per_unit,balance_after,note
 2026-04-23T23:12:06.231712,investment,,investment,CRYPTO_BTC,400.0,0.0065,62000.0,3850.0,Bought 0.0065 units of CRYPTO_BTC
+2026-04-24T02:51:00.111969,expense,Primark,shopping,,20.0,,,3830.0,shopping at Primark
+2026-04-24T02:51:32.336365,expense,Kruidvat,groceries,,0.0,,,3830.0,groceries at Kruidvat
+2026-04-24T02:55:10.051472,expense,Primark,shopping,,39.0,,,3791.0,shopping at Primark
+2026-04-24T02:55:33.048758,expense,Jumbo,groceries,,0.0,,,3791.0,groceries at Jumbo

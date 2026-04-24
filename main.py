@@ -66,8 +66,8 @@ SESSION_CONTEXT = UserContext(
 # ---------------------------------------------------------------------------
 
 def handle_receipt(image_path: str):
-    from ocr import extract_text
-    from parser import parse_receipt
+    from ocr import run_ocr_full
+    from parser import parse_receipt_paddle
     from classifier import classify_expense
     from insight import generate_insight
     import mock_bank
@@ -76,15 +76,16 @@ def handle_receipt(image_path: str):
     print(f"  RECEIPT SCAN: {image_path}")
     print(f"{'='*52}")
 
-    print("\n[1/4] Running OCR...")
-    raw_text = extract_text(image_path)
-    print(f"  → {len(raw_text)} chars extracted")
+    print("\n[1/4] Running PaddleOCR...")
+    lines, results, image_shape = run_ocr_full(image_path)
+    print(f"  → {len(lines)} lines extracted")
 
-    print("\n[DEBUG OCR OUTPUT]\n", raw_text)
-
-    print("[2/4] Parsing receipt...")
-    parsed = parse_receipt(raw_text)
-    print(f"  → merchant: {parsed['merchant']}, total: €{parsed.get('total', 0):.2f}")
+    print("[2/4] Parsing receipt (bounding-box aware)...")
+    parsed = parse_receipt_paddle(lines, results, image_shape)
+    total_display = f"€{parsed['total']:.2f}" if parsed.get("total") is not None else "not found"
+    print(f"  → merchant: {parsed['merchant']}, total: {total_display}")
+    if parsed.get("discount"):
+        print(f"  → discount detected: €{parsed['discount']:.2f}")
     print(f"  → items: {parsed['items']}")
 
     print("[3/4] Classifying expense (LLM)...")
