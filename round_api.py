@@ -188,8 +188,17 @@ async def assign_text(body: PersonText):
     if not session:
         raise HTTPException(404, "Session not found")
 
-    matched = rv.match_items(body.text, session["items"])
+    session_items = session.get("items") or []
+    print(f"[ASSIGN/TEXT] session_id={body.session_id} items_in_session={session_items}")
+    print(f"[ASSIGN/TEXT] input text='{body.text}'")
+
+    if not session_items:
+        raise HTTPException(400, f"Session has no items — OCR may have failed. Session items: {session_items!r}")
+
+    matched = rv.match_items(body.text, session_items)
     amount = matched["total"]
+
+    print(f"[ASSIGN/TEXT] matched={matched}")
 
     person = rs.add_person(session, body.name, matched["matched_items"], amount, body.contact)
 
@@ -201,6 +210,23 @@ async def assign_text(body: PersonText):
         "amount":    amount,
         "confidence": matched.get("confidence", 0),
         "remaining": _unassigned_total(session),
+        "debug_session_items": session_items,
+    }
+
+
+@app.get("/session/{session_id}/items")
+async def get_session_items(session_id: str):
+    """Debug: see exactly what items are stored in the session."""
+    session = rs.get_session(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    return {
+        "ok": True,
+        "session_id": session_id,
+        "restaurant": session.get("restaurant_name"),
+        "total": session.get("total"),
+        "items": session.get("items") or [],
+        "items_count": len(session.get("items") or []),
     }
 
 

@@ -21,3 +21,4 @@ timestamp,type,merchant,category,instrument,amount,units_purchased,price_per_uni
 2026-04-24 01:07:19.156989,income,,bunq_payment,,500.0,,,,Top up sandbox account
 2026-04-24 01:07:12.204638,income,,bunq_payment,,500.0,,,,Top up sandbox account
 2026-04-24T11:58:29.019688,investment,,investment,ETF_SP500,200.0,0.4878,410.0,760.8,Bought 0.4878 units of ETF_SP500
+2026-04-25T05:13:49.365971,expense,B H,groceries,,51.3,,,709.5,groceries at B H

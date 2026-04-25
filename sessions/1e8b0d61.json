@@ -1,0 +1,25 @@
+{
+  "id": "1e8b0d61",
+  "created": "2026-04-25T05:04:55.407277",
+  "restaurant_name": "B H",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [],
+  "total": 51.3,
+  "pot": 0.0,
+  "people": [
+    {
+      "id": "a420ae",
+      "name": "lsdfjli",
+      "items": [],
+      "amount": 0.0,
+      "contact": "lisjflisd",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    }
+  ],
+  "status": "assigning",
+  "released": false
+}

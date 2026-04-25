@@ -30,3 +30,6 @@ requests>=2.31.0
 
 # LLM (Ollama is external — run: ollama serve)
 # No pip install needed for Ollama
+
+# Anthropic API (for Claude vision OCR)
+anthropic>=0.25.0

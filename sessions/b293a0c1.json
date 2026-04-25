@@ -1,0 +1,49 @@
+{
+  "id": "b293a0c1",
+  "created": "2026-04-25T05:33:15.200134",
+  "restaurant_name": "Dinefine Restaurant",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [
+    {
+      "name": "2X Caesar Salad",
+      "price": 24.0
+    },
+    {
+      "name": "Grilled Salmon",
+      "price": 22.0
+    },
+    {
+      "name": "Cheesecake",
+      "price": 7.5
+    },
+    {
+      "name": "2X Sparkling Water",
+      "price": 6.0
+    }
+  ],
+  "total": 51.3,
+  "pot": 0.0,
+  "people": [
+    {
+      "id": "f26899",
+      "name": "Nithin",
+      "items": [
+        {
+          "name": "Cheesecake",
+          "price": 7.5
+        }
+      ],
+      "amount": 7.5,
+      "contact": "ljldfs",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/hrjYwyCCNdcX6E5xYwhKA",
+      "paid_at": null,
+      "request_method": "bunqme",
+      "request_simulated": false
+    }
+  ],
+  "status": "collecting",
+  "released": false
+}

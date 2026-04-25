@@ -1,0 +1,102 @@
+{
+  "id": "94f832cd",
+  "created": "2026-04-25T05:06:05.615598",
+  "restaurant_name": "B H",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [],
+  "total": 51.3,
+  "pot": 0.0,
+  "people": [
+    {
+      "id": "1d47e8",
+      "name": "asjdlsj",
+      "items": [],
+      "amount": 0.0,
+      "contact": "lijsdlfj",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    },
+    {
+      "id": "fab576",
+      "name": "asjdlsj",
+      "items": [],
+      "amount": 0.0,
+      "contact": "lijsdlfj",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    },
+    {
+      "id": "dc2f30",
+      "name": "asjdlsj",
+      "items": [],
+      "amount": 0.0,
+      "contact": "lijsdlfj",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    },
+    {
+      "id": "f75be3",
+      "name": "asjdlsj",
+      "items": [],
+      "amount": 0.0,
+      "contact": "lijsdlfj",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    },
+    {
+      "id": "5846b1",
+      "name": "asjdlsj",
+      "items": [],
+      "amount": 0.0,
+      "contact": "lijsdlfj",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    },
+    {
+      "id": "31342e",
+      "name": "asjdlsj",
+      "items": [],
+      "amount": 0.0,
+      "contact": "lijsdlfj",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    },
+    {
+      "id": "1c0ae8",
+      "name": "asjdlsj",
+      "items": [],
+      "amount": 0.0,
+      "contact": "lijsdlfj",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    },
+    {
+      "id": "f2bbd6",
+      "name": "asjdlsj",
+      "items": [],
+      "amount": 0.0,
+      "contact": "lijsdlfj",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    }
+  ],
+  "status": "assigning",
+  "released": false
+}

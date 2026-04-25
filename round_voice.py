@@ -1,5 +1,5 @@
 """
-round_voice.py - Voice transcription + deterministic item matching for Round.
+round_voice.py - Voice transcription + item matching for Round.
 """
 
 from __future__ import annotations
@@ -77,115 +77,120 @@ def transcribe_bytes(audio_bytes: bytes) -> str:
 
 
 def _normalize(text: str) -> str:
+    """Lowercase, strip punctuation, collapse whitespace."""
     text = text.lower()
     text = re.sub(r"[^a-z0-9 ]", " ", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
+_STOP = {
+    "i", "me", "my", "had", "have", "the", "a", "an", "and", "with", "for",
+    "to", "of", "please", "just", "got", "was", "were", "is", "it", "on",
+    "in", "we", "our", "share", "bill", "also", "then", "plus",
+}
+
+
 def _tokens(text: str) -> list[str]:
-    stop = {
-        "i", "me", "my", "had", "have", "the", "a", "an", "and", "with", "for",
-        "to", "of", "please", "just", "got", "was", "were", "is", "it", "on",
-        "in", "we", "our", "share", "bill",
-    }
-    return [t for t in _normalize(text).split() if len(t) > 2 and t not in stop]
+    return [t for t in _normalize(text).split() if len(t) >= 3 and t not in _STOP]
 
 
-def _category_keywords(item_name: str) -> set[str]:
-    lowered = _normalize(item_name)
-    keywords = set()
-    if any(word in lowered for word in ["wine", "beer", "cola", "coke", "sprite", "juice", "water", "tea", "coffee", "latte", "drink", "cocktail"]):
-        keywords.add("drinks")
-    if any(word in lowered for word in ["cake", "cheesecake", "dessert", "ice cream", "tiramisu", "brownie"]):
-        keywords.add("dessert")
-    if any(word in lowered for word in ["burger", "pizza", "pasta", "salad", "fries", "steak", "sandwich", "meal"]):
-        keywords.add("food")
-        keywords.add("main")
-    return keywords
-
-
-def _item_score(speech_norm: str, speech_tokens: set[str], item_name: str) -> tuple[int, str]:
-    item_norm = _normalize(item_name)
-    item_tokens = set(_tokens(item_name))
-    if not item_norm:
-        return 0, "empty"
-
-    if item_norm in speech_norm:
-        return 100, "exact phrase"
-
-    meaningful_overlap = speech_tokens & item_tokens
-    if meaningful_overlap:
-        score = 70 + 10 * len(meaningful_overlap)
-        return min(score, 95), "token overlap"
-
-    try:
-        from rapidfuzz import fuzz
-    except ImportError:
-        return 0, "no match"
-
-    partial = fuzz.partial_ratio(speech_norm, item_norm)
-    token_set = fuzz.token_set_ratio(speech_norm, item_norm)
-
-    # Require strong similarity unless there is actual token overlap.
-    if partial >= 92 and token_set >= 70:
-        return int((partial + token_set) / 2), "high fuzzy"
-
-    return 0, "no match"
+def _item_keywords(item_name: str) -> set[str]:
+    """
+    Extract meaningful words from item name, stripping quantity prefixes.
+    '2X CAESAR SALAD' -> {'caesar', 'salad'}
+    'CHEESECAKE'      -> {'cheesecake'}
+    """
+    norm = _normalize(item_name)
+    # Strip leading quantity like '2x ', 'x2 ', '2 '
+    norm = re.sub(r"^\d+x?\s+|^x\d+\s+", "", norm)
+    return {t for t in norm.split() if len(t) >= 3 and t not in _STOP}
 
 
 def match_items(speech: str, receipt_items: list[dict]) -> dict:
-    speech_norm = _normalize(speech)
-    speech_tokens = set(_tokens(speech))
-
-    if not speech_norm or not receipt_items:
+    """
+    Match speech/text against receipt items.
+    Returns {"matched_items": [...], "total": float, "confidence": float}
+    """
+    if not speech or not receipt_items:
         return {"matched_items": [], "total": 0.0, "confidence": 0.0}
 
-    matches = []
-    category_requested = set()
-    for token in speech_tokens:
-        if token in {"drink", "drinks", "beverage", "beverages"}:
-            category_requested.add("drinks")
-        if token in {"dessert", "desserts", "sweet", "sweets"}:
-            category_requested.add("dessert")
-        if token in {"food", "foods", "main", "mains"}:
-            category_requested.add("food")
+    speech_norm = _normalize(speech)
+    speech_tok  = set(_tokens(speech))
 
-    for item in receipt_items:
-        name = str(item.get("name", "")).strip()
-        price = float(item.get("price", 0) or 0)
-        score, reason = _item_score(speech_norm, speech_tokens, name)
+    print(f"[MATCH] speech='{speech_norm}' tokens={speech_tok}")
+    print(f"[MATCH] items={receipt_items}")
 
-        if not score and category_requested:
-            item_categories = _category_keywords(name)
-            if item_categories & category_requested:
-                score = 74
-                reason = "category"
+    matched = []  # (score, receipt_index, item_dict)
+
+    for idx, item in enumerate(receipt_items):
+        raw_name  = str(item.get("name", "")).strip()
+        price     = float(item.get("price", 0) or 0)
+        item_norm = _normalize(raw_name)
+        item_kw   = _item_keywords(raw_name)
+        # Quantity-stripped version of item name for matching
+        stripped  = re.sub(r"^\d+x?\s+|^x\d+\s+", "", item_norm).strip()
+
+        score = 0
+
+        # 1. Full item name is substring of speech
+        if item_norm and item_norm in speech_norm:
+            score = 100
+
+        # 2. Quantity-stripped name is substring of speech
+        elif stripped and stripped in speech_norm:
+            score = 98
+
+        # 3. ALL item keywords present in speech tokens
+        elif item_kw and item_kw.issubset(speech_tok):
+            score = 90
+
+        # 4. ANY keyword found in speech tokens
+        elif item_kw:
+            overlap = item_kw & speech_tok
+            if overlap:
+                score = int(75 + 15 * (len(overlap) / len(item_kw)))
+
+        # 5. Any keyword appears as substring in speech (catches OCR variants)
+        if score == 0 and item_kw:
+            for kw in item_kw:
+                if len(kw) >= 4 and kw in speech_norm:
+                    score = 74
+                    break
+
+        # 6. rapidfuzz fallback
+        if score == 0:
+            try:
+                from rapidfuzz import fuzz
+                target = stripped if stripped else item_norm
+                p = fuzz.partial_ratio(speech_norm, target)
+                t = fuzz.token_set_ratio(speech_norm, target)
+                if p >= 85 and t >= 65:
+                    score = int((p + t) / 2)
+                elif t >= 80:
+                    score = int(t * 0.9)
+            except ImportError:
+                pass
+
+        print(f"[MATCH]   '{raw_name}' (kw={item_kw}) -> score={score}")
 
         if score >= 74:
-            matches.append({
-                "name": name,
-                "price": round(price, 2),
-                "_score": score,
-                "_reason": reason,
-            })
+            matched.append((score, idx, {"name": raw_name, "price": round(price, 2)}))
 
-    # Deduplicate and keep stable ordering.
-    deduped = []
-    seen = set()
-    for item in sorted(matches, key=lambda x: (-x["_score"], x["name"])):
-        key = (_normalize(item["name"]), item["price"])
-        if key in seen:
-            continue
-        seen.add(key)
-        deduped.append({"name": item["name"], "price": item["price"]})
+    # Each receipt line claimed at most once
+    seen_idx = set()
+    deduped  = []
+    for score, idx, item_dict in sorted(matched, key=lambda x: -x[0]):
+        if idx not in seen_idx:
+            seen_idx.add(idx)
+            deduped.append((idx, item_dict))
 
-    total = round(sum(item["price"] for item in deduped), 2)
-    confidence = 0.0
-    if deduped:
-        confidence = round(min(0.99, 0.65 + 0.1 * len(deduped)), 2)
+    # Restore receipt order
+    deduped.sort(key=lambda x: x[0])
+    result_items = [d for _, d in deduped]
 
-    return {
-        "matched_items": deduped,
-        "total": total,
-        "confidence": confidence,
-    }
+    total      = round(sum(i["price"] for i in result_items), 2)
+    confidence = round(min(0.99, 0.65 + 0.1 * len(result_items)), 2) if result_items else 0.0
+
+    print(f"[MATCH] => matched={[i['name'] for i in result_items]} total={total}")
+
+    return {"matched_items": result_items, "total": total, "confidence": confidence}

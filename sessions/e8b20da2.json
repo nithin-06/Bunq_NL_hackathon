@@ -1,0 +1,107 @@
+{
+  "id": "e8b20da2",
+  "created": "2026-04-25T05:16:24.803750",
+  "restaurant_name": "Dinefine Restaurant",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [
+    {
+      "name": "2X Caesar Salad",
+      "price": 24.0
+    },
+    {
+      "name": "Grilled Salmon",
+      "price": 22.0
+    },
+    {
+      "name": "Cheesecake",
+      "price": 7.5
+    },
+    {
+      "name": "2X Sparkling Water",
+      "price": 6.0
+    }
+  ],
+  "total": 51.3,
+  "pot": 0.0,
+  "people": [
+    {
+      "id": "a70f31",
+      "name": "Nithin Raju",
+      "items": [
+        {
+          "name": "Cheesecake",
+          "price": 7.5
+        }
+      ],
+      "amount": 7.5,
+      "contact": "rajunithin2002@gmail.com",
+      "paid": false,
+      "request_id": 2356568,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/6PCjFkudo9PcSB2ePhJPBK",
+      "paid_at": null,
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "cfced4",
+      "name": "ljsdfi",
+      "items": [
+        {
+          "name": "2X Caesar Salad",
+          "price": 24.0
+        }
+      ],
+      "amount": 24.0,
+      "contact": "lijsdfli",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/6rDxnApfHaqhuf9kf1qVim",
+      "paid_at": null,
+      "request_method": "bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "bd5dab",
+      "name": "sdfjnl",
+      "items": [
+        {
+          "name": "Cheesecake",
+          "price": 7.5
+        },
+        {
+          "name": "2X Sparkling Water",
+          "price": 6.0
+        }
+      ],
+      "amount": 13.5,
+      "contact": "lsjfdlj",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/6CCWDu4j1G9cBKwkzU3dDb",
+      "paid_at": null,
+      "request_method": "bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "3ae255",
+      "name": "sldfjj",
+      "items": [
+        {
+          "name": "Grilled Salmon",
+          "price": 22.0
+        }
+      ],
+      "amount": 22.0,
+      "contact": "lkjldksf",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/wQHBDn9fD7XViPPFELfwy",
+      "paid_at": null,
+      "request_method": "bunqme",
+      "request_simulated": false
+    }
+  ],
+  "status": "collecting",
+  "released": false
+}

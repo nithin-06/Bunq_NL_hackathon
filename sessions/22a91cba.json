@@ -1,0 +1,36 @@
+{
+  "id": "22a91cba",
+  "created": "2026-04-25T04:56:52.298867",
+  "restaurant_name": "B H",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [],
+  "total": 51.3,
+  "pot": 0.0,
+  "people": [
+    {
+      "id": "8ac822",
+      "name": "Nithin Raju",
+      "items": [],
+      "amount": 0.0,
+      "contact": "rajunithin2002@gmail.com",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    },
+    {
+      "id": "3a7258",
+      "name": "Nithin Raju",
+      "items": [],
+      "amount": 0.0,
+      "contact": "bhkbkj",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    }
+  ],
+  "status": "assigning",
+  "released": false
+}
