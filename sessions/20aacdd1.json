@@ -1,0 +1,80 @@
+{
+  "id": "20aacdd1",
+  "created": "2026-04-25T10:51:46.084612",
+  "restaurant_name": "Dinefine Restaurant",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [
+    {
+      "name": "2X Caesar Salad",
+      "price": 24.0
+    },
+    {
+      "name": "Grilled Salmon",
+      "price": 22.0
+    },
+    {
+      "name": "Cheesecake",
+      "price": 7.5
+    },
+    {
+      "name": "2X Sparkling Water",
+      "price": 6.0
+    }
+  ],
+  "total": 51.3,
+  "pot": 0.0,
+  "people": [
+    {
+      "id": "7c7345",
+      "name": "Nithin Raju",
+      "items": [
+        {
+          "name": "Cheesecake",
+          "price": 7.5
+        }
+      ],
+      "amount": 7.5,
+      "contact": "khkfdsh@gmail.com",
+      "paid": false,
+      "request_id": 2361208,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/71rzQLlS74Xf35AG7ZRQ8E",
+      "paid_at": null,
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "ad9439",
+      "name": "Lara",
+      "items": [],
+      "amount": 0,
+      "contact": "kdshkusdh@jugjudc.com",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": "https://bunq.me/Round/0.00/EUR/demo_5a981e50",
+      "paid_at": null,
+      "request_method": "bunqme",
+      "request_simulated": true
+    },
+    {
+      "id": "d8ffef",
+      "name": "Lara",
+      "items": [
+        {
+          "name": "Grilled Salmon",
+          "price": 22.0
+        }
+      ],
+      "amount": 22.0,
+      "contact": "kdshkusdh@jugjudc.com",
+      "paid": false,
+      "request_id": 2361210,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/5daJlnFiGIGs9HtbgFd19h",
+      "paid_at": null,
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    }
+  ],
+  "status": "collecting",
+  "released": false
+}

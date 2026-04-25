@@ -1,0 +1,35 @@
+{
+  "id": "preview0",
+  "created": "2026-04-25T10:50:11.720522",
+  "restaurant_name": "La Bella Italia",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "EUR",
+  "items": [
+    {
+      "name": "Pasta Carbonara",
+      "price": 16.0
+    }
+  ],
+  "total": 22.5,
+  "pot": 0.0,
+  "people": [
+    {
+      "id": "prev01",
+      "name": "Nithin",
+      "items": [
+        {
+          "name": "Pasta Carbonara",
+          "price": 16.0
+        }
+      ],
+      "amount": 22.5,
+      "contact": "nithin@example.com",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null
+    }
+  ],
+  "status": "assigning",
+  "released": false
+}

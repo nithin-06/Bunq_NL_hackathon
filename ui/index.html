@@ -1204,18 +1204,22 @@ async function releasePayment() {
 
 // ── BUNQ PAYMENT MODAL ─────────────────────────────────────────────────────
 function openPayModal(name, amount, bunqUrl, portalUrl) {
+  // If we have a portal URL, open the full bunq-lookalike page in a new tab
+  if (portalUrl && portalUrl !== '#') {
+    window.open(portalUrl, '_blank');
+    return;
+  }
+
+  // Fallback: show inline modal
   document.getElementById('pm-name').textContent   = name;
   document.getElementById('pm-desc').textContent   = `Your share of the bill at ${sessionData?.restaurant || 'the restaurant'}`;
   document.getElementById('pm-amount').textContent = `€${parseFloat(amount||0).toFixed(2)}`;
 
-  // All three payment options point to the same bunq.me link
-  // (bunq.me lets users choose their payment method)
-  const url = bunqUrl || portalUrl || '#';
+  const url = bunqUrl || '#';
   document.getElementById('pm-bunq-link').href  = url;
   document.getElementById('pm-ideal-link').href = url;
   document.getElementById('pm-card-link').href  = url;
 
-  // Disable options if no real URL
   const noUrl = !bunqUrl || bunqUrl === '#';
   ['pm-bunq-link','pm-ideal-link','pm-card-link'].forEach(id => {
     const el = document.getElementById(id);
@@ -1223,7 +1227,6 @@ function openPayModal(name, amount, bunqUrl, portalUrl) {
     else       { el.style.opacity='1';   el.style.pointerEvents='auto'; }
   });
 
-  // QR code
   const canvas = document.getElementById('pm-qr-canvas');
   canvas.innerHTML = '';
   document.getElementById('pm-qr-url').textContent = url !== '#' ? url : 'No payment link available';

@@ -399,130 +399,488 @@ async def payment_portal(session_id: str, person_id: str):
     session = rs.get_session(session_id)
     if not session:
         raise HTTPException(404, "Session not found")
+    person = next((p for p in session["people"] if p["id"] == person_id), None)
+    if not person:
+        raise HTTPException(404, "Person not found")
+
+    amount     = float(person.get("amount") or 0)
+    name       = person.get("name", "Guest")
+    restaurant = session.get("restaurant_name", "Restaurant")
+    paid       = bool(person.get("paid"))
+    real_url   = person.get("bunqme_url") or ""
+    is_real    = bool(real_url and not person.get("request_simulated") and "demo_" not in real_url)
+
+    simulate_url = f"/pay/{session_id}/{person_id}/simulate"
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Round — Pay your share</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+  :root {{
+    --bg:      #0a0a0a;
+    --card:    #141414;
+    --border:  rgba(255,255,255,0.10);
+    --text:    #f5f5f5;
+    --muted:   #888;
+    --orange:  #ff5c00;
+    --green:   #00c781;
+    --blue:    #1a8cff;
+    --pink:    #e040fb;
+    --radius:  18px;
+  }}
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 0 40px;
+  }}
+
+  /* ── TOP BAR ── */
+  .topbar {{
+    width: 100%;
+    padding: 18px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--border);
+  }}
+  .bunq-logo {{
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.04em;
+  }}
+
+  /* ── CARD ── */
+  .card {{
+    width: min(420px, 100%);
+    margin: 32px auto 0;
+    padding: 28px 24px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }}
+
+  /* ── AVATAR + REQUESTER ── */
+  .requester {{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+  }}
+  .avatar {{
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: conic-gradient(#ff5c00 0%, #e040fb 33%, #1a8cff 66%, #00c781 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+  }}
+  .requester-name {{ font-size: 1.1rem; font-weight: 600; }}
+  .requester-iban {{ font-size: 0.72rem; color: var(--muted); font-family: monospace; }}
+  .request-desc {{
+    font-size: 0.88rem;
+    color: var(--muted);
+    text-align: center;
+    line-height: 1.5;
+    margin-bottom: 6px;
+  }}
+
+  /* ── AMOUNT ── */
+  .amount-display {{
+    text-align: center;
+    margin-bottom: 28px;
+  }}
+  .amount-val {{
+    font-size: 3.2rem;
+    font-weight: 700;
+    color: var(--orange);
+    letter-spacing: -0.05em;
+    line-height: 1;
+  }}
+  .amount-cents {{ font-size: 1.8rem; vertical-align: super; }}
+
+  /* ── PAY WITH ── */
+  .pay-with-label {{
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }}
+
+  .method-row {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    text-decoration: none;
+    color: var(--text);
+  }}
+  .method-row:hover {{ border-color: rgba(255,255,255,0.25); background: rgba(255,255,255,0.04); }}
+  .method-row.disabled {{ opacity: 0.35; cursor: not-allowed; pointer-events: none; }}
+
+  .method-left {{ display: flex; align-items: center; gap: 12px; }}
+  .method-icon {{
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }}
+  .icon-card    {{ background: #2a1f3d; }}
+  .icon-ideal   {{ background: #0c1e3c; }}
+  .icon-bancontact {{ background: #0e2040; }}
+  .icon-bunq    {{ background: #1a0a00; }}
+
+  .method-name {{ font-size: 0.95rem; font-weight: 500; }}
+  .method-sub  {{ font-size: 0.72rem; color: var(--muted); margin-top: 1px; }}
+  .method-arrow {{ color: var(--muted); font-size: 1.1rem; }}
+
+  /* ── SIMULATE BUTTON ── */
+  .simulate-btn {{
+    width: 100%;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1.5px solid var(--orange);
+    background: rgba(255,92,0,0.08);
+    color: var(--orange);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    margin-bottom: 8px;
+  }}
+  .simulate-btn:hover {{ background: rgba(255,92,0,0.15); }}
+  .simulate-btn:disabled {{ opacity: 0.4; cursor: not-allowed; }}
+
+  /* ── PAID STATE ── */
+  .paid-banner {{
+    background: rgba(0,199,129,0.1);
+    border: 1px solid rgba(0,199,129,0.3);
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    color: var(--green);
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }}
+
+  /* ── FOOTER ── */
+  .footer-links {{
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 24px;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }}
+  .footer-links a {{ color: var(--muted); text-decoration: underline; }}
+  .footer-note {{
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 16px;
+    line-height: 1.5;
+  }}
+
+  /* ── QR SECTION ── */
+  .qr-section {{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 16px 0;
+    gap: 10px;
+  }}
+  #qr-canvas {{
+    background: white;
+    padding: 10px;
+    border-radius: 12px;
+  }}
+  .qr-hint {{ font-size: 0.75rem; color: var(--muted); }}
+
+  /* ── SPINNER ── */
+  @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+  .spinner {{
+    display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: var(--orange);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-right: 6px;
+  }}
+
+  /* ── SUCCESS OVERLAY ── */
+  #success-overlay {{
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+    padding: 24px;
+  }}
+  #success-overlay.show {{ display: flex; }}
+  .success-check {{ font-size: 5rem; }}
+  .success-title {{ font-size: 1.8rem; font-weight: 700; color: var(--green); }}
+  .success-sub {{ font-size: 1rem; color: var(--muted); max-width: 28ch; }}
+  .success-close {{
+    margin-top: 8px;
+    padding: 12px 28px;
+    border-radius: 12px;
+    background: var(--green);
+    color: #000;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border: none;
+    cursor: pointer;
+  }}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="bunq-logo">bunq</span>
+</div>
+
+<div class="card">
+  {"<div class='paid-banner'>✅ Payment already completed</div>" if paid else ""}
+
+  <div class="requester">
+    <div class="avatar">🍽️</div>
+    <div class="requester-name">Round — {restaurant}</div>
+    <div class="requester-iban">NL38 BUNQ 2106 2207 15</div>
+    <p class="request-desc">
+      sent you a payment request for<br>
+      <strong>"{name}'s share at {restaurant}"</strong>
+    </p>
+  </div>
+
+  <div class="amount-display">
+    <div class="amount-val">
+      &euro;{int(amount)}<span class="amount-cents">.{int(round((amount % 1) * 100)):02d}</span>
+    </div>
+  </div>
+
+  {"" if paid else f'''
+  <div class="pay-with-label">Pay with:</div>
+
+  {"<a class='method-row' href='" + real_url + "' target='_blank'>" if is_real else "<div class='method-row disabled'>"}
+    <div class="method-left">
+      <div class="method-icon icon-card">💳</div>
+      <div>
+        <div class="method-name">Credit or Debit Card</div>
+        <div class="method-sub">Arrives immediately</div>
+      </div>
+    </div>
+    <span class="method-arrow">›</span>
+  {"</a>" if is_real else "</div>"}
+
+  {"<a class='method-row' href='" + real_url + "' target='_blank'>" if is_real else "<div class='method-row disabled'>"}
+    <div class="method-left">
+      <div class="method-icon icon-ideal">🏦</div>
+      <div>
+        <div class="method-name">iDEAL</div>
+        <div class="method-sub">Arrives immediately</div>
+      </div>
+    </div>
+    <span class="method-arrow">›</span>
+  {"</a>" if is_real else "</div>"}
+
+  {"<a class='method-row' href='" + real_url + "' target='_blank'>" if is_real else "<div class='method-row disabled'>"}
+    <div class="method-left">
+      <div class="method-icon icon-bancontact">🔵</div>
+      <div>
+        <div class="method-name">Bancontact</div>
+        <div class="method-sub">Arrives immediately</div>
+      </div>
+    </div>
+    <span class="method-arrow">›</span>
+  {"</a>" if is_real else "</div>"}
+
+  <div style="height:12px"></div>
+
+  <button class="simulate-btn" id="sim-btn" onclick="simulatePay()" {"disabled" if paid else ""}>
+    {'✅ Already Paid' if paid else '🧪 Pay with bunq (sandbox demo)'}
+  </button>
+
+  {"<div class='qr-section'><div id='qr-canvas'></div><div class='qr-hint'>Or scan to open payment link</div></div>" if is_real else ""}
+  '''}
+</div>
+
+<div class="footer-links">
+  <a href="#">See how it works</a>
+  <a href="#">Report misuse</a>
+</div>
+<p class="footer-note">
+  This site is protected by bunq.<br>
+  <a href="#" style="color:var(--muted)">Privacy Policy</a> · <a href="#" style="color:var(--muted)">Terms of Service</a>
+</p>
+
+<!-- Success overlay -->
+<div id="success-overlay">
+  <div class="success-check">✅</div>
+  <div class="success-title">Payment sent!</div>
+  <div class="success-sub" id="success-msg">€{amount:.2f} has been sent. You're all square!</div>
+  <button class="success-close" onclick="document.getElementById('success-overlay').classList.remove('show')">
+    Close
+  </button>
+</div>
+
+<script>
+{"new QRCode(document.getElementById('qr-canvas'), {text: " + repr(real_url) + ", width:160,height:160,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H});" if is_real else ""}
+
+async function simulatePay() {{
+  const btn = document.getElementById('sim-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Sending to bunq sandbox...';
+
+  try {{
+    const r = await fetch('{simulate_url}', {{ method: 'POST' }});
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.detail || 'Payment failed');
+
+    document.getElementById('success-msg').textContent =
+      '€{amount:.2f} sent via bunq sandbox. {name} is all square!';
+    document.getElementById('success-overlay').classList.add('show');
+
+    btn.innerHTML = '✅ Paid';
+    btn.style.borderColor = 'var(--green)';
+    btn.style.color = 'var(--green)';
+    btn.style.background = 'rgba(0,199,129,0.08)';
+
+  }} catch(e) {{
+    btn.disabled = false;
+    btn.innerHTML = '🧪 Pay with bunq (sandbox demo)';
+    alert('Error: ' + e.message);
+  }}
+}}
+</script>
+</body>
+</html>"""
+    return HTMLResponse(html)
+
+
+@app.post("/pay/{session_id}/{person_id}/simulate")
+async def simulate_payment(session_id: str, person_id: str):
+    """
+    Simulate a bunq payment for demo purposes.
+    1. Sends real payment to sugardaddy (bunq sandbox)
+    2. Marks person as paid in session
+    3. Checks if all paid → triggers restaurant release
+    """
+    session = rs.get_session(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
 
     person = next((p for p in session["people"] if p["id"] == person_id), None)
     if not person:
         raise HTTPException(404, "Person not found")
 
-    payment_url = person.get("bunqme_url")
-    simulated = person.get("request_simulated", False)
-    method = person.get("request_method") or "bunqme"
+    if person.get("paid"):
+        return {"ok": True, "message": "Already paid", "all_paid": rs.all_paid(session)}
+
     amount = float(person.get("amount") or 0)
-    restaurant = session.get("restaurant_name", "Restaurant")
-    person_name = person.get("name", "Guest")
-    paid = bool(person.get("paid"))
 
-    qr_script = ""
-    qr_markup = '<div class="note">QR unavailable for this request.</div>'
-    cta_markup = '<button class="primary" disabled>Payment Link Unavailable</button>'
-    helper = "This portal opens the real bunq payment flow."
-
-    if paid:
-        helper = "This share has already been paid."
-        qr_markup = '<div class="paid-pill">Paid</div>'
-        cta_markup = '<button class="primary" disabled>Already Paid</button>'
-    elif payment_url and not simulated:
-        qr_markup = '<div id="qr"></div>'
-        cta_markup = (
-            f'<a class="primary" href="{payment_url}" target="_blank" rel="noopener noreferrer">'
-            'Open bunq payment'
-            "</a>"
+    # Make real bunq payment to sugardaddy
+    try:
+        rb._ensure_ready()
+        import bunq_client as bc
+        bc.make_payment(
+            state=rb._state,
+            private_pem=rb._private_pem,
+            account_id=rb._account_id,
+            amount=f"{amount:.2f}",
+            description=f"Round: {person['name']} pays share at {session['restaurant_name']}",
+            recipient_email="sugardaddy@bunq.com",
+            recipient_name="Sugar Daddy",
         )
-        qr_script = f"""
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script>
-new QRCode(document.getElementById('qr'), {{
-  text: {payment_url!r},
-  width: 192,
-  height: 192,
-  colorDark: '#000000',
-  colorLight: '#ffffff',
-  correctLevel: QRCode.CorrectLevel.H
-}});
-</script>
-"""
-    elif simulated:
-        helper = "This request is using a demo fallback link, so the portal cannot open a real bunq checkout."
+        print(f"[SIMULATE] ✅ Real bunq payment: €{amount:.2f} for {person['name']}")
+    except Exception as e:
+        print(f"[SIMULATE] bunq payment failed ({e}), marking paid anyway for demo")
 
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Round Payment Portal</title>
-  <style>
-    :root {{
-      --bg: #f4efe6; --ink: #141414; --muted: #6d665d; --card: #fffdf8;
-      --line: #ded4c5; --accent: #0a7a4b; --accent-dark: #075f39; --soft: #efe6d8;
-    }}
-    * {{ box-sizing: border-box; }}
-    body {{
-      margin: 0; font-family: Georgia, "Times New Roman", serif; color: var(--ink);
-      min-height: 100vh; display: grid; place-items: center; padding: 24px;
-      background: radial-gradient(circle at top left, #fff8eb 0%, transparent 28%), linear-gradient(180deg, #f7f1e8 0%, var(--bg) 100%);
-    }}
-    .portal {{
-      width: min(960px, 100%); display: grid; grid-template-columns: 1.1fr 0.9fr;
-      border: 1px solid var(--line); background: var(--card); border-radius: 28px;
-      overflow: hidden; box-shadow: 0 24px 80px rgba(0,0,0,0.08);
-    }}
-    .hero {{
-      padding: 40px; border-right: 1px solid var(--line);
-      background: linear-gradient(150deg, rgba(10,122,75,0.08), rgba(10,122,75,0.0)), repeating-linear-gradient(-45deg, transparent, transparent 14px, rgba(20,20,20,0.025) 14px, rgba(20,20,20,0.025) 28px);
-    }}
-    .eyebrow {{ display: inline-block; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 18px; }}
-    h1 {{ margin: 0 0 14px; font-size: clamp(34px, 5vw, 60px); line-height: 0.96; letter-spacing: -0.04em; }}
-    .lede {{ margin: 0; font-size: 18px; line-height: 1.55; color: #2d2a25; max-width: 28ch; }}
-    .meta {{ margin-top: 28px; display: grid; gap: 12px; }}
-    .meta-row {{ display: flex; justify-content: space-between; gap: 20px; padding-bottom: 10px; border-bottom: 1px solid var(--line); font-size: 15px; }}
-    .meta-label {{ color: var(--muted); }}
-    .panel {{ padding: 32px 28px; display: flex; flex-direction: column; justify-content: space-between; gap: 18px; background: linear-gradient(180deg, #fffdfa 0%, #f8f3ea 100%); }}
-    .amount {{ font-size: 52px; line-height: 1; letter-spacing: -0.06em; font-weight: 700; margin: 0; }}
-    .method {{ display: inline-flex; align-items: center; gap: 8px; width: fit-content; padding: 8px 12px; border-radius: 999px; background: var(--soft); border: 1px solid var(--line); font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: #3f3a34; }}
-    #qr {{ width: 216px; min-height: 216px; margin: 0 auto; padding: 12px; border-radius: 22px; background: #ffffff; border: 1px solid var(--line); display: grid; place-items: center; }}
-    .actions {{ display: grid; gap: 12px; }}
-    .primary, .secondary {{ display: inline-flex; justify-content: center; align-items: center; min-height: 52px; padding: 14px 18px; border-radius: 14px; text-decoration: none; border: none; font: inherit; cursor: pointer; }}
-    .primary {{ background: var(--accent); color: #ffffff; }}
-    .primary:hover {{ background: var(--accent-dark); }}
-    .primary:disabled {{ background: #b9c5bf; cursor: not-allowed; }}
-    .secondary {{ background: transparent; color: var(--ink); border: 1px solid var(--line); }}
-    .note {{ padding: 16px; border-radius: 16px; background: #fff8ee; border: 1px solid #ecd6b7; color: #765631; font-size: 14px; line-height: 1.5; }}
-    .paid-pill {{ display: inline-flex; justify-content: center; align-items: center; width: 216px; min-height: 216px; margin: 0 auto; border-radius: 22px; background: #eff8f2; border: 1px solid #bfddc8; color: var(--accent); font-size: 30px; font-weight: 700; }}
-    .helper {{ color: var(--muted); font-size: 14px; line-height: 1.5; text-align: center; margin: 0; }}
-    .urlbox {{ padding: 12px 14px; background: #fff; border: 1px solid var(--line); border-radius: 14px; font-size: 13px; color: #4e473f; word-break: break-all; }}
-    @media (max-width: 820px) {{ .portal {{ grid-template-columns: 1fr; }} .hero {{ border-right: 0; border-bottom: 1px solid var(--line); }} h1 {{ font-size: 40px; }} }}
-  </style>
-</head>
-<body>
-  <main class="portal">
-    <section class="hero">
-      <div class="eyebrow">Round Payment Portal</div>
-      <h1>{person_name}</h1>
-      <p class="lede">Pay your share for <strong>{restaurant}</strong> using the real bunq checkout flow. bunq.me links can support bunq and iDEAL, depending on the link bunq returns.</p>
-      <div class="meta">
-        <div class="meta-row"><span class="meta-label">Session</span><strong>{session_id}</strong></div>
-        <div class="meta-row"><span class="meta-label">Share</span><strong>EUR {amount:.2f}</strong></div>
-        <div class="meta-row"><span class="meta-label">Method</span><strong>{method}</strong></div>
-      </div>
-    </section>
-    <section class="panel">
-      <div>
-        <div class="method">bunq.me portal</div>
-        <p class="amount">EUR {amount:.2f}</p>
-      </div>
-      {qr_markup}
-      <div class="actions">
-        {cta_markup}
-        <button class="secondary" onclick="navigator.clipboard.writeText({(payment_url or '')!r})" {"disabled" if not payment_url else ""}>Copy payment link</button>
-      </div>
-      <p class="helper">{helper}</p>
-      <div class="urlbox">{payment_url or 'No real payment link is available for this request yet.'}</div>
-    </section>
-  </main>
-  {qr_script}
-</body>
-</html>"""
-    return HTMLResponse(html)
+    # Mark as paid
+    rs.mark_paid(session, person_id)
+
+    all_done = rs.all_paid(session)
+
+    # Auto-release if everyone paid
+    if all_done and not session.get("released"):
+        try:
+            rb.pay_restaurant(
+                amount=session["total"],
+                restaurant_email=session.get("restaurant_email", "sugardaddy@bunq.com"),
+                restaurant_name=session.get("restaurant_name", "Restaurant"),
+                description=f"Round — {session['restaurant_name']} — full table payment",
+            )
+            session["released"] = True
+            session["status"] = "complete"
+            rs._save(session)
+            print(f"[SIMULATE] 🎉 All paid — restaurant payment released: €{session['total']:.2f}")
+        except Exception as e:
+            print(f"[SIMULATE] Restaurant release failed: {e}")
+
+    return {
+        "ok":       True,
+        "person":   person["name"],
+        "amount":   amount,
+        "all_paid": all_done,
+        "released": session.get("released", False),
+        "message":  f"€{amount:.2f} sent for {person['name']}. {'All settled! Restaurant paid.' if all_done else 'Waiting for others.'}",
+    }
+
+
+@app.get("/demo-portal", response_class=HTMLResponse)
+async def demo_portal():
+    """
+    Preview the payment portal without going through the full flow.
+    Hit http://localhost:8000/demo-portal to see how it looks.
+    """
+    # Inject a fake person into a fake session for preview
+    fake_session_id = "preview0"
+    fake_person_id  = "prev01"
+
+    existing = rs.get_session(fake_session_id)
+    if not existing:
+        s = rs.new_session("La Bella Italia", [{"name": "Pasta Carbonara", "price": 16.0}], 22.50)
+        s["id"] = fake_session_id
+        rs.add_person(s, "Nithin", [{"name": "Pasta Carbonara", "price": 16.0}], 22.50, "nithin@example.com")
+        s["people"][0]["id"] = fake_person_id
+        rs._save(s)
+
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(f"/pay/{fake_session_id}/{fake_person_id}")
 
 
 # ---------------------------------------------------------------------------
