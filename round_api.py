@@ -17,6 +17,7 @@ Run:
 
 import json
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -150,6 +151,8 @@ async def assign_voice(
     session = rs.get_session(session_id)
     if not session:
         raise HTTPException(404, "Session not found")
+    if session.get("status") != "assigning":
+        raise HTTPException(400, "People can only be changed before payment collection starts")
 
     audio_bytes = await audio.read()
 
@@ -161,20 +164,29 @@ async def assign_voice(
 
     # Match items
     matched = rv.match_items(transcript, session["items"])
-    amount = matched["total"]
+    if not matched["matched_items"]:
+        raise HTTPException(400, "No receipt items matched for that person")
+    assigned_items = _allocate_matched_items(session, matched["matched_items"])
+    amount = round(sum(item["price"] for item in assigned_items), 2)
 
     # Add to session
-    person = rs.add_person(session, name, matched["matched_items"], amount, contact)
+    person = rs.add_person(session, name, assigned_items, amount, contact)
+    person["source_mode"] = "voice"
+    person["source_text"] = transcript
+    person["transcript"] = transcript
+    rs._save(session)
 
     return {
         "ok":         True,
         "person_id":  person["id"],
         "name":       name,
         "transcript": transcript,
-        "items":      matched["matched_items"],
+        "items":      assigned_items,
         "amount":     amount,
         "confidence": matched.get("confidence", 0),
         "remaining":  _unassigned_total(session),
+        "session":    session,
+        "assignment": _assignment_summary(session),
     }
 
 
@@ -187,6 +199,8 @@ async def assign_text(body: PersonText):
     session = rs.get_session(body.session_id)
     if not session:
         raise HTTPException(404, "Session not found")
+    if session.get("status") != "assigning":
+        raise HTTPException(400, "People can only be changed before payment collection starts")
 
     session_items = session.get("items") or []
     print(f"[ASSIGN/TEXT] session_id={body.session_id} items_in_session={session_items}")
@@ -196,21 +210,29 @@ async def assign_text(body: PersonText):
         raise HTTPException(400, f"Session has no items — OCR may have failed. Session items: {session_items!r}")
 
     matched = rv.match_items(body.text, session_items)
-    amount = matched["total"]
+    if not matched["matched_items"]:
+        raise HTTPException(400, "No receipt items matched for that person")
+    assigned_items = _allocate_matched_items(session, matched["matched_items"])
+    amount = round(sum(item["price"] for item in assigned_items), 2)
 
     print(f"[ASSIGN/TEXT] matched={matched}")
 
-    person = rs.add_person(session, body.name, matched["matched_items"], amount, body.contact)
+    person = rs.add_person(session, body.name, assigned_items, amount, body.contact)
+    person["source_mode"] = "text"
+    person["source_text"] = body.text
+    rs._save(session)
 
     return {
         "ok":        True,
         "person_id": person["id"],
         "name":      body.name,
-        "items":     matched["matched_items"],
+        "items":     assigned_items,
         "amount":    amount,
         "confidence": matched.get("confidence", 0),
         "remaining": _unassigned_total(session),
         "debug_session_items": session_items,
+        "session":   session,
+        "assignment": _assignment_summary(session),
     }
 
 
@@ -242,6 +264,12 @@ async def collect_payments(body: CollectRequest, background_tasks: BackgroundTas
 
     if not session["people"]:
         raise HTTPException(400, "No people added yet")
+    if session.get("status") != "assigning":
+        raise HTTPException(400, "Payment collection already started")
+
+    remaining = _unassigned_total(session)
+    if remaining > 0.01:
+        raise HTTPException(400, f"Assign the remaining €{remaining:.2f} before sending payment requests")
 
     results = []
     for person in session["people"]:
@@ -316,6 +344,7 @@ async def get_session(session_id: str):
         "pot":        session["pot"],
         "target":     session["total"],
         "pct":        round(session["pot"] / session["total"] * 100, 1) if session["total"] > 0 else 0,
+        "assignment": _assignment_summary(session),
     }
 
 
@@ -351,6 +380,8 @@ async def release_payment(session_id: str, body: ReleaseRequest):
 
     if session["released"]:
         return {"ok": True, "message": "Already released", "amount": session.get("total", 0)}
+    if session.get("pot", 0) + 0.01 < session.get("total", 0):
+        raise HTTPException(400, f"Cannot release yet: only €{session.get('pot', 0):.2f} of €{session.get('total', 0):.2f} has been paid")
 
     amount = session["total"]
     try:
@@ -376,6 +407,29 @@ async def manual_mark_paid(session_id: str, person_id: str):
         raise HTTPException(404, "Session not found")
     success = rs.mark_paid(session, person_id)
     return {"ok": success, "all_paid": rs.all_paid(session), "pot": session["pot"]}
+
+
+@app.delete("/session/{session_id}/person/{person_id}")
+async def delete_person(session_id: str, person_id: str):
+    session = rs.get_session(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    if session.get("status") != "assigning":
+        raise HTTPException(400, "People can only be removed before payment collection starts")
+
+    people = session.get("people", [])
+    idx = next((i for i, person in enumerate(people) if person.get("id") == person_id), None)
+    if idx is None:
+        raise HTTPException(404, "Person not found")
+
+    removed = people.pop(idx)
+    rs._save(session)
+    return {
+        "ok": True,
+        "removed": removed,
+        "session": session,
+        "assignment": _assignment_summary(session),
+    }
 
 
 @app.delete("/session/{session_id}")
@@ -928,3 +982,115 @@ def _unassigned_total(session: dict) -> float:
 
 def _payment_portal_url(session_id: str, person_id: str) -> str:
     return f"/pay/{session_id}/{person_id}"
+
+
+def _normalize_item_name(name: str) -> str:
+    text = str(name or "").strip().lower()
+    text = re.sub(r"^\d+\s*[xX]\s+", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text
+
+
+def _expand_receipt_items(receipt_items: list[dict]) -> list[dict]:
+    expanded = []
+    for receipt_idx, item in enumerate(receipt_items or []):
+        raw_name = str(item.get("name", "")).strip()
+        price = round(float(item.get("price", 0) or 0), 2)
+        match = re.match(r"^(\d+)[xX]\s+(.+)$", raw_name)
+        if match:
+            qty = max(1, int(match.group(1)))
+            base_name = match.group(2).strip()
+            unit_price = round(price / qty, 2)
+            for unit_idx in range(qty):
+                expanded.append({
+                    "claim_id": f"{receipt_idx}:{unit_idx}",
+                    "name": base_name,
+                    "price": unit_price,
+                    "receipt_idx": receipt_idx,
+                    "unit_idx": unit_idx,
+                    "original_name": raw_name,
+                })
+        else:
+            expanded.append({
+                "claim_id": f"{receipt_idx}:0",
+                "name": raw_name,
+                "price": price,
+                "receipt_idx": receipt_idx,
+                "unit_idx": 0,
+                "original_name": raw_name,
+            })
+    return expanded
+
+
+def _claimed_item_ids(session: dict) -> set[str]:
+    claimed = set()
+    for person in session.get("people", []):
+        for item in person.get("items", []):
+            claim_id = item.get("claim_id")
+            if claim_id:
+                claimed.add(claim_id)
+    return claimed
+
+
+def _allocate_matched_items(session: dict, matched_items: list[dict]) -> list[dict]:
+    if not matched_items:
+        return []
+
+    claimed_ids = _claimed_item_ids(session)
+    available_by_key: dict[tuple[str, float], list[dict]] = {}
+    totals_by_key: dict[tuple[str, float], int] = {}
+
+    for item in _expand_receipt_items(session.get("items") or []):
+        key = (_normalize_item_name(item["name"]), round(float(item["price"]), 2))
+        totals_by_key[key] = totals_by_key.get(key, 0) + 1
+        if item["claim_id"] in claimed_ids:
+            continue
+        available_by_key.setdefault(key, []).append(item)
+
+    shortages: list[str] = []
+    allocated: list[dict] = []
+    for matched in matched_items:
+        name = str(matched.get("name", "")).strip()
+        price = round(float(matched.get("price", 0) or 0), 2)
+        key = (_normalize_item_name(name), price)
+        slot = (available_by_key.get(key) or [])
+        if not slot:
+            total_count = totals_by_key.get(key, 0)
+            if total_count > 0:
+                shortages.append(f"{name} is already fully assigned")
+            else:
+                shortages.append(f"{name} is not available on this bill")
+            continue
+
+        picked = slot.pop(0)
+        allocated.append({
+            "claim_id": picked["claim_id"],
+            "name": picked["name"],
+            "price": picked["price"],
+            "receipt_idx": picked["receipt_idx"],
+            "unit_idx": picked["unit_idx"],
+            "original_name": picked["original_name"],
+        })
+
+    if shortages:
+        raise HTTPException(409, ". ".join(dict.fromkeys(shortages)))
+
+    return allocated
+
+
+def _assignment_summary(session: dict) -> dict:
+    expanded_items = _expand_receipt_items(session.get("items") or [])
+    claimed_ids = _claimed_item_ids(session)
+    assigned_total = round(sum(float(person.get("amount", 0) or 0) for person in session.get("people", [])), 2)
+    remaining_total = round(max(0.0, float(session.get("total", 0) or 0) - assigned_total), 2)
+
+    return {
+        "total": round(float(session.get("total", 0) or 0), 2),
+        "assigned": assigned_total,
+        "remaining": remaining_total,
+        "people_count": len(session.get("people", [])),
+        "items_total": len(expanded_items),
+        "items_assigned": sum(1 for item in expanded_items if item["claim_id"] in claimed_ids),
+        "items_remaining": sum(1 for item in expanded_items if item["claim_id"] not in claimed_ids),
+        "fully_assigned": remaining_total <= 0.01,
+    }

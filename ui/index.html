@@ -243,6 +243,15 @@ main {
 .person-name   { font-weight: 600; font-size: 0.92rem; }
 .person-amount { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--bunq); }
 .person-items  { font-size: 0.73rem; color: var(--muted2); margin-bottom: 0.5rem; }
+.person-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 0.75rem;
+}
+.btn-small {
+  padding: 7px 12px;
+  font-size: 0.75rem;
+}
 
 /* ── PAY CARD (collect screen) ── */
 .pay-card {
@@ -667,6 +676,7 @@ input:focus { border-color: var(--bunq); box-shadow: 0 0 0 3px rgba(0,212,170,0.
     <div class="summary-item"><div class="summary-val" id="assign-remaining">€0</div><div class="summary-lbl">Remaining</div></div>
     <div class="summary-item"><div class="summary-val" id="assign-count">0</div><div class="summary-lbl">People</div></div>
   </div>
+  <div class="text-muted" id="assign-hint" style="margin-bottom:1rem"></div>
 
   <div id="people-list"></div>
 
@@ -826,6 +836,7 @@ let sessionData = null;
 let mediaRecorder = null;
 let inputMode   = 'voice';
 let pollInterval = null;
+let editingPerson = null;
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 window.addEventListener('load', async () => {
@@ -936,12 +947,13 @@ function checkAddReady() {
   const contact = document.getElementById('person-contact').value.trim();
   const text    = document.getElementById('person-text').value.trim();
   const btn     = document.getElementById('add-btn');
+  const isEditing = !!editingPerson;
   if (inputMode === 'text') {
     btn.disabled    = !(name && contact && text);
-    btn.textContent = 'Add to bill';
+    btn.textContent = isEditing ? 'Save updated person' : 'Add to bill';
   } else {
     btn.disabled    = true;
-    btn.textContent = 'Record voice above to add';
+    btn.textContent = isEditing ? 'Record voice to save changes' : 'Record voice above to add';
   }
 }
 
@@ -998,10 +1010,10 @@ async function toggleRecord() {
         }
 
         document.getElementById('record-status').textContent = 'Added! Record next person or proceed.';
-        renderPerson(data);
-        updateAssignSummary();
+        const wasEditing = !!editingPerson;
+        syncSession(data.session, data.assignment);
         resetAddForm();
-        toast(`${name} added — €${(data.amount||0).toFixed(2)}`, 'success');
+        toast(`${name} ${wasEditing ? 'updated' : 'added'} — €${(data.amount||0).toFixed(2)}`, 'success');
       } catch(e) {
         document.getElementById('record-status').textContent = `Error: ${e.message}`;
         toast(e.message, 'error');
@@ -1049,47 +1061,68 @@ async function addPerson() {
         return;
       }
 
-      renderPerson(data);
-      updateAssignSummary();
+      const wasEditing = !!editingPerson;
+      syncSession(data.session, data.assignment);
       resetAddForm();
-      toast(`${name} added — €${(data.amount||0).toFixed(2)}`, 'success');
+      toast(`${name} ${wasEditing ? 'updated' : 'added'} — €${(data.amount||0).toFixed(2)}`, 'success');
     } catch(e) {
       toast(e.message, 'error');
     } finally {
       btn.disabled    = false;
-      btn.textContent = 'Add to bill';
+      checkAddReady();
     }
   }
 }
 
-function renderPerson(data) {
+function renderPeople() {
   const list  = document.getElementById('people-list');
-  const items = (data.items||[]).map(i => i.name||i).join(' · ');
-  list.innerHTML += `
-    <div class="person-card" id="pc-${data.person_id}">
-      <div class="person-header">
-        <span class="person-name">${data.name}</span>
-        <span class="person-amount">€${(data.amount||0).toFixed(2)}</span>
-      </div>
-      <div class="person-items">${items || '—'}</div>
-      <span class="badge badge-pending">⏳ Pending</span>
-    </div>`;
+  const people = sessionData?.people || [];
+  list.innerHTML = '';
+
+  if (!people.length) {
+    list.innerHTML = `<div class="card text-muted">No one added yet.</div>`;
+    return;
+  }
+
+  people.forEach(person => {
+    const items = (person.items || []).map(i => i.name || i.original_name || i).join(' · ');
+    list.innerHTML += `
+      <div class="person-card" id="pc-${person.id}">
+        <div class="person-header">
+          <span class="person-name">${escapeHtml(person.name || '—')}</span>
+          <span class="person-amount">€${parseFloat(person.amount || 0).toFixed(2)}</span>
+        </div>
+        <div class="person-items">${escapeHtml(items || '—')}</div>
+        <span class="badge badge-pending">⏳ Pending</span>
+        <div class="person-actions">
+          <button class="btn btn-secondary btn-small" onclick="beginEditPerson('${person.id}')">Edit</button>
+          <button class="btn btn-ghost btn-small" onclick="removePerson('${person.id}')">Delete</button>
+        </div>
+      </div>`;
+  });
 }
 
 function updateAssignSummary() {
   if (!sessionData) return;
-  const total    = sessionData.total || 0;
-  const assigned = Array.from(document.querySelectorAll('.person-card'))
-    .reduce((acc, c) => acc + parseFloat(c.querySelector('.person-amount')?.textContent?.replace('€','') || 0), 0);
+  const assignment = sessionData.assignment || {};
+  const total = parseFloat(assignment.total ?? sessionData.total ?? 0);
+  const assigned = parseFloat(assignment.assigned ?? 0);
+  const remaining = parseFloat(assignment.remaining ?? total);
+  const peopleCount = parseInt(assignment.people_count ?? (sessionData.people || []).length, 10);
+  const fullyAssigned = remaining <= 0.01 && peopleCount > 0;
 
   document.getElementById('assign-total').textContent     = `€${total.toFixed(2)}`;
   document.getElementById('assign-assigned').textContent  = `€${assigned.toFixed(2)}`;
-  document.getElementById('assign-remaining').textContent = `€${Math.max(0, total - assigned).toFixed(2)}`;
-  document.getElementById('assign-count').textContent     = document.querySelectorAll('.person-card').length;
-  document.getElementById('collect-btn').disabled         = document.querySelectorAll('.person-card').length === 0;
+  document.getElementById('assign-remaining').textContent = `€${remaining.toFixed(2)}`;
+  document.getElementById('assign-count').textContent     = `${peopleCount}`;
+  document.getElementById('collect-btn').disabled         = !fullyAssigned;
+  document.getElementById('assign-hint').textContent      = fullyAssigned
+    ? 'Everything on the receipt has been assigned. You can send payment requests.'
+    : `Assign the remaining €${remaining.toFixed(2)} before moving to collection.`;
 }
 
 function resetAddForm() {
+  editingPerson = null;
   document.getElementById('person-name').value    = '';
   document.getElementById('person-contact').value = '';
   document.getElementById('person-text').value    = '';
@@ -1099,6 +1132,13 @@ function resetAddForm() {
 }
 
 async function goToCollect() {
+  const remaining = parseFloat(sessionData?.assignment?.remaining ?? sessionData?.total ?? 0);
+  if (remaining > 0.01) {
+    toast(`Assign the remaining €${remaining.toFixed(2)} before collecting`, 'error');
+    updateAssignSummary();
+    return;
+  }
+
   const btn = document.getElementById('collect-btn');
   btn.disabled    = true;
   btn.textContent = 'Sending…';
@@ -1113,6 +1153,7 @@ async function goToCollect() {
     if (!data.ok) throw new Error(data.detail || 'Failed');
 
     showScreen(3);
+    sessionData.status = 'collecting';
     renderPaymentList(data.requests || []);
     startPolling();
     toast('Payment requests sent 🚀', 'success');
@@ -1128,17 +1169,21 @@ function renderPaymentList(requests) {
   const list = document.getElementById('payment-list');
   list.innerHTML = '';
   requests.forEach(req => {
-    const nameKey = (req.name||'').replace(/\s/g,'_');
+    const cardKey = req.person_id || (req.name || '').replace(/\s/g,'_');
+    const safeName = JSON.stringify(req.name || '');
+    const safeUrl = JSON.stringify(req.url || '');
+    const safePortalUrl = JSON.stringify(req.portal_url || '');
+    const safePersonId = JSON.stringify(req.person_id || '');
     list.innerHTML += `
-      <div class="pay-card" id="pay-${nameKey}">
+      <div class="pay-card" id="pay-${cardKey}">
         <div class="person-header" style="margin-bottom:0.6rem">
-          <span class="person-name">${req.name}</span>
+          <span class="person-name">${escapeHtml(req.name || '—')}</span>
           <span class="person-amount">€${parseFloat(req.amount||0).toFixed(2)}</span>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span class="badge badge-sent" id="status-${nameKey}">📤 Request sent</span>
+          <span class="badge badge-sent" id="status-${cardKey}">📤 Request sent</span>
           <button class="btn btn-primary" style="padding:8px 16px;font-size:0.8rem"
-            onclick="openPayModal('${req.name}', ${parseFloat(req.amount||0)}, '${req.url||''}', '${req.portal_url||''}', '${req.person_id||''}')">
+            onclick='openPayModal(${safeName}, ${parseFloat(req.amount||0)}, ${safeUrl}, ${safePortalUrl}, ${safePersonId})'>
             💳 Pay now
           </button>
         </div>
@@ -1160,10 +1205,11 @@ async function refreshStatus() {
     const data = await resp.json();
     if (!data.ok) return;
 
+    syncSession(data.session, data.assignment, false);
     updatePot(data.pot, data.target);
 
     (data.session?.people||[]).forEach(p => {
-      const key  = p.name.replace(/\s/g,'_');
+      const key  = p.id || p.name.replace(/\s/g,'_');
       const card  = document.getElementById(`pay-${key}`);
       const badge = document.getElementById(`status-${key}`);
       if (p.paid && card) {
@@ -1308,7 +1354,7 @@ async function simulatePayment() {
     if (!data.ok) throw new Error(data.detail || 'Payment failed');
 
     // Mark card as paid in background
-    const nameKey = name.replace(/\s/g,'_');
+    const nameKey = personId || name.replace(/\s/g,'_');
     const card    = document.getElementById(`pay-${nameKey}`);
     const badge   = document.getElementById(`status-${nameKey}`);
     if (card)  card.classList.add('paid');
@@ -1354,9 +1400,78 @@ function toast(msg, type = '') {
   setTimeout(() => el.classList.remove('show', type), 3200);
 }
 
+function syncSession(session, assignment = null, rerenderPeople = true) {
+  if (!session) return;
+  sessionData = {
+    ...(sessionData || {}),
+    ...session,
+    restaurant: session.restaurant_name || sessionData?.restaurant,
+    total: parseFloat(session.total ?? sessionData?.total ?? 0),
+    people: session.people || [],
+    assignment: assignment || sessionData?.assignment || null,
+  };
+
+  if (rerenderPeople) {
+    renderPeople();
+    updateAssignSummary();
+  }
+}
+
+async function removePerson(personId, { quiet = false } = {}) {
+  try {
+    const resp = await fetch(`${API}/session/${sessionId}/person/${personId}`, { method: 'DELETE' });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.detail || 'Failed to remove person');
+
+    syncSession(data.session, data.assignment);
+
+    if (!quiet) {
+      const removedName = data.removed?.name || 'Person';
+      toast(`${removedName} removed from the bill`, 'success');
+    }
+
+    return data.removed;
+  } catch (e) {
+    if (!quiet) toast(e.message, 'error');
+    throw e;
+  }
+}
+
+async function beginEditPerson(personId) {
+  const person = (sessionData?.people || []).find(p => p.id === personId);
+  if (!person) {
+    toast('Person not found', 'error');
+    return;
+  }
+
+  try {
+    const removed = await removePerson(personId, { quiet: true });
+    editingPerson = personId;
+    document.getElementById('person-name').value = removed?.name || person.name || '';
+    document.getElementById('person-contact').value = removed?.contact || person.contact || '';
+    document.getElementById('person-text').value = removed?.source_text || (removed?.items || person.items || []).map(i => i.name || '').join(' and ');
+    switchTab('text');
+    document.getElementById('record-status').textContent = 'Update the items and add this person again.';
+    toast(`Editing ${removed?.name || person.name}. Update the fields and add again.`, 'success');
+    checkAddReady();
+  } catch (e) {
+    console.warn('Edit failed', e);
+  }
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 // ── RESET ──────────────────────────────────────────────────────────────────
 function startOver() {
   sessionId = null; sessionData = null;
+  editingPerson = null;
   if (pollInterval) clearInterval(pollInterval);
   document.getElementById('upload-zone').style.display  = 'block';
   document.getElementById('scan-preview').style.display = 'none';
