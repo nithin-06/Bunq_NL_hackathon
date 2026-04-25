@@ -534,6 +534,38 @@ input:focus { border-color: var(--bunq); box-shadow: 0 0 0 3px rgba(0,212,170,0.
 
 .pm-close:hover { color: var(--text); }
 
+.pm-simulate-btn {
+  width: 100%;
+  padding: 14px;
+  margin-top: 0.8rem;
+  background: linear-gradient(135deg, var(--bunq), var(--bunq2));
+  border: none;
+  border-radius: 12px;
+  color: #000;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.18s;
+  letter-spacing: -0.01em;
+  box-shadow: 0 4px 20px rgba(0,212,170,0.3);
+}
+
+.pm-simulate-btn:hover   { filter: brightness(1.08); transform: translateY(-1px); }
+.pm-simulate-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.pm-sandbox-note {
+  text-align: center;
+  font-size: 0.62rem;
+  color: var(--muted);
+  margin-top: 0.4rem;
+  letter-spacing: 0.03em;
+}
+
 /* ── TOAST ── */
 #toast {
   position: fixed;
@@ -773,6 +805,12 @@ input:focus { border-color: var(--bunq); box-shadow: 0 0 0 3px rgba(0,212,170,0.
         <div class="pm-qr-url" id="pm-qr-url"></div>
       </div>
 
+      <!-- Simulate real bunq payment (sandbox) -->
+      <button class="pm-simulate-btn" id="pm-simulate-btn" onclick="simulatePayment()" style="display:none">
+        <span>💳</span><span>Pay via bunq (sandbox)</span>
+      </button>
+
+      <div class="pm-sandbox-note">SANDBOX — sends a real bunq API payment to complete the flow</div>
       <button class="pm-close" onclick="closePayModal()">Close</button>
     </div>
   </div>
@@ -1100,7 +1138,7 @@ function renderPaymentList(requests) {
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span class="badge badge-sent" id="status-${nameKey}">📤 Request sent</span>
           <button class="btn btn-primary" style="padding:8px 16px;font-size:0.8rem"
-            onclick="openPayModal('${req.name}', ${parseFloat(req.amount||0)}, '${req.url||''}', '${req.portal_url||''}')">
+            onclick="openPayModal('${req.name}', ${parseFloat(req.amount||0)}, '${req.url||''}', '${req.portal_url||''}', '${req.person_id||''}')">
             💳 Pay now
           </button>
         </div>
@@ -1203,35 +1241,35 @@ async function releasePayment() {
 }
 
 // ── BUNQ PAYMENT MODAL ─────────────────────────────────────────────────────
-function openPayModal(name, amount, bunqUrl, portalUrl) {
-  // If we have a portal URL, open the full bunq-lookalike page in a new tab
-  if (portalUrl && portalUrl !== '#') {
-    window.open(portalUrl, '_blank');
-    return;
-  }
+function openPayModal(name, amount, bunqUrl, portalUrl, personId) {
+  // Store context for simulate button
+  document.getElementById('pay-modal').dataset.personId   = personId || '';
+  document.getElementById('pay-modal').dataset.personName = name;
+  document.getElementById('pay-modal').dataset.amount     = amount;
 
-  // Fallback: show inline modal
   document.getElementById('pm-name').textContent   = name;
   document.getElementById('pm-desc').textContent   = `Your share of the bill at ${sessionData?.restaurant || 'the restaurant'}`;
   document.getElementById('pm-amount').textContent = `€${parseFloat(amount||0).toFixed(2)}`;
 
-  const url = bunqUrl || '#';
+  const url = bunqUrl || portalUrl || '#';
+  const hasUrl = url && url !== '#';
+
+  // External bunq.me links open in new tab
   document.getElementById('pm-bunq-link').href  = url;
   document.getElementById('pm-ideal-link').href = url;
   document.getElementById('pm-card-link').href  = url;
 
-  const noUrl = !bunqUrl || bunqUrl === '#';
   ['pm-bunq-link','pm-ideal-link','pm-card-link'].forEach(id => {
     const el = document.getElementById(id);
-    if (noUrl) { el.style.opacity='0.4'; el.style.pointerEvents='none'; }
-    else       { el.style.opacity='1';   el.style.pointerEvents='auto'; }
+    el.style.opacity       = hasUrl ? '1'    : '0.4';
+    el.style.pointerEvents = hasUrl ? 'auto' : 'none';
   });
 
+  // QR code
   const canvas = document.getElementById('pm-qr-canvas');
   canvas.innerHTML = '';
-  document.getElementById('pm-qr-url').textContent = url !== '#' ? url : 'No payment link available';
-
-  if (url && url !== '#') {
+  document.getElementById('pm-qr-url').textContent = hasUrl ? url : '';
+  if (hasUrl) {
     new QRCode(canvas, {
       text:         url,
       width:        160,
@@ -1242,7 +1280,62 @@ function openPayModal(name, amount, bunqUrl, portalUrl) {
     });
   }
 
+  // Show/hide simulate button
+  const simBtn = document.getElementById('pm-simulate-btn');
+  simBtn.style.display = personId ? 'flex' : 'none';
+  simBtn.disabled      = false;
+  simBtn.innerHTML     = `<span>💳</span><span>Pay €${parseFloat(amount||0).toFixed(2)} (sandbox)</span>`;
+
   document.getElementById('pay-modal').classList.add('open');
+}
+
+async function simulatePayment() {
+  const modal    = document.getElementById('pay-modal');
+  const personId = modal.dataset.personId;
+  const name     = modal.dataset.personName;
+  const amount   = modal.dataset.amount;
+
+  if (!personId || !sessionId) return;
+
+  const btn = document.getElementById('pm-simulate-btn');
+  btn.disabled  = true;
+  btn.innerHTML = '<div class="spinner"></div><span>Sending real bunq payment…</span>';
+
+  try {
+    const resp = await fetch(`${API}/pay/${sessionId}/${personId}/simulate`, { method: 'POST' });
+    const data = await resp.json();
+
+    if (!data.ok) throw new Error(data.detail || 'Payment failed');
+
+    // Mark card as paid in background
+    const nameKey = name.replace(/\s/g,'_');
+    const card    = document.getElementById(`pay-${nameKey}`);
+    const badge   = document.getElementById(`status-${nameKey}`);
+    if (card)  card.classList.add('paid');
+    if (badge) { badge.className = 'badge badge-paid'; badge.textContent = '✅ Paid'; }
+    const payBtn = card?.querySelector('.btn-primary');
+    if (payBtn) payBtn.style.display = 'none';
+
+    // Update pot
+    await refreshStatus();
+
+    btn.innerHTML = '✅ Payment sent!';
+    toast(`${name} paid €${parseFloat(amount).toFixed(2)} via bunq`, 'success');
+
+    setTimeout(() => {
+      closePayModal();
+
+      if (data.all_paid) {
+        toast('🎉 Everyone paid! Releasing to restaurant…', 'success');
+        setTimeout(releasePayment, 1200);
+      }
+    }, 1200);
+
+  } catch(e) {
+    btn.disabled  = false;
+    btn.innerHTML = '💳 Retry payment';
+    toast(`Payment failed: ${e.message}`, 'error');
+  }
 }
 
 function closePayModal() {

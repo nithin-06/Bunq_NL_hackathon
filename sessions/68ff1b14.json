@@ -1,0 +1,67 @@
+{
+  "id": "68ff1b14",
+  "created": "2026-04-25T11:04:28.054207",
+  "restaurant_name": "Dinefine Restaurant",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [
+    {
+      "name": "2X Caesar Salad",
+      "price": 24.0
+    },
+    {
+      "name": "Grilled Salmon",
+      "price": 22.0
+    },
+    {
+      "name": "Cheesecake",
+      "price": 7.5
+    },
+    {
+      "name": "2X Sparkling Water",
+      "price": 6.0
+    }
+  ],
+  "total": 51.3,
+  "pot": 46.0,
+  "people": [
+    {
+      "id": "54e57c",
+      "name": "Nithin",
+      "items": [
+        {
+          "name": "2X Caesar Salad",
+          "price": 24.0
+        }
+      ],
+      "amount": 24.0,
+      "contact": "lsidjf@bunq.com",
+      "paid": true,
+      "request_id": 2361614,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/2DmA9qOxxE6rxViNVBUZNA",
+      "paid_at": "2026-04-25T11:05:35.197180",
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "b10162",
+      "name": "lara",
+      "items": [
+        {
+          "name": "Grilled Salmon",
+          "price": 22.0
+        }
+      ],
+      "amount": 22.0,
+      "contact": "sdljfl@bunq.com",
+      "paid": true,
+      "request_id": 2361620,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/7mkW4ADiiI0XDqBtuEJKVl",
+      "paid_at": "2026-04-25T11:05:53.076373",
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    }
+  ],
+  "status": "complete",
+  "released": true
+}
