@@ -350,7 +350,7 @@ async def release_payment(session_id: str, body: ReleaseRequest):
         raise HTTPException(404, "Session not found")
 
     if session["released"]:
-        return {"ok": True, "message": "Already released"}
+        return {"ok": True, "message": "Already released", "amount": session.get("total", 0)}
 
     amount = session["total"]
     try:

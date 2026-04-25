@@ -106,9 +106,48 @@ def _item_keywords(item_name: str) -> set[str]:
     return {t for t in norm.split() if len(t) >= 3 and t not in _STOP}
 
 
+def _expand_items(receipt_items: list[dict]) -> list[dict]:
+    """
+    Expand quantity items into individual units.
+    '2X CAESAR SALAD' at $24.00 → two entries of 'CAESAR SALAD' at $12.00 each.
+    This lets us correctly assign one caesar salad to one person at the right price.
+    Original receipt_index is preserved so dedup still works.
+    """
+    expanded = []
+    for idx, item in enumerate(receipt_items):
+        raw_name = str(item.get("name", "")).strip()
+        price    = float(item.get("price", 0) or 0)
+        m = re.match(r'^(\d+)[xX]\s+(.+)$', raw_name)
+        if m:
+            qty        = int(m.group(1))
+            base_name  = m.group(2).strip()
+            unit_price = round(price / qty, 2)
+            for i in range(qty):
+                expanded.append({
+                    "name":            base_name,
+                    "price":           unit_price,
+                    "_receipt_idx":    idx,          # original line on receipt
+                    "_unit_idx":       i,            # which unit (0, 1, …)
+                    "_qty_total":      qty,
+                    "_original_name":  raw_name,
+                })
+        else:
+            expanded.append({
+                "name":           raw_name,
+                "price":          round(price, 2),
+                "_receipt_idx":   idx,
+                "_unit_idx":      0,
+                "_qty_total":     1,
+                "_original_name": raw_name,
+            })
+    return expanded
+
+
 def match_items(speech: str, receipt_items: list[dict]) -> dict:
     """
     Match speech/text against receipt items.
+    Quantity items (e.g. '2X CAESAR SALAD') are split into individual units
+    so each person is charged only for what they had.
     Returns {"matched_items": [...], "total": float, "confidence": float}
     """
     if not speech or not receipt_items:
@@ -117,14 +156,17 @@ def match_items(speech: str, receipt_items: list[dict]) -> dict:
     speech_norm = _normalize(speech)
     speech_tok  = set(_tokens(speech))
 
+    # Expand quantity items into individual units
+    expanded = _expand_items(receipt_items)
+
     print(f"[MATCH] speech='{speech_norm}' tokens={speech_tok}")
-    print(f"[MATCH] items={receipt_items}")
+    print(f"[MATCH] expanded items={[(e['name'], e['price']) for e in expanded]}")
 
-    matched = []  # (score, receipt_index, item_dict)
+    matched = []  # (score, expand_index, item_dict)
 
-    for idx, item in enumerate(receipt_items):
-        raw_name  = str(item.get("name", "")).strip()
-        price     = float(item.get("price", 0) or 0)
+    for idx, item in enumerate(expanded):
+        raw_name  = item["name"]
+        price     = item["price"]
         item_norm = _normalize(raw_name)
         item_kw   = _item_keywords(raw_name)
         # Quantity-stripped version of item name for matching
@@ -176,15 +218,29 @@ def match_items(speech: str, receipt_items: list[dict]) -> dict:
         if score >= 74:
             matched.append((score, idx, {"name": raw_name, "price": round(price, 2)}))
 
-    # Each receipt line claimed at most once
-    seen_idx = set()
-    deduped  = []
-    for score, idx, item_dict in sorted(matched, key=lambda x: -x[0]):
-        if idx not in seen_idx:
-            seen_idx.add(idx)
-            deduped.append((idx, item_dict))
+    # Each expanded unit claimed at most once.
+    # Additionally: only take ONE unit of a given item type per person,
+    # unless the speech explicitly contains a quantity word like "two", "2x", "x2".
+    # e.g. "caesar salad" → 1 unit at €12, not 2 units at €24.
+    qty_words = re.search(r'\b(two|three|four|five|2x|3x|x2|x3|\d+)\b', speech_norm)
+    explicit_multi = bool(qty_words)
 
-    # Restore receipt order
+    seen_idx        = set()   # expanded slot index
+    seen_item_type  = set()   # (receipt_idx) — one unit per item type unless explicit multi
+    deduped         = []
+
+    for score, idx, item_dict in sorted(matched, key=lambda x: -x[0]):
+        if idx in seen_idx:
+            continue
+        # Determine which original receipt line this unit comes from
+        receipt_idx = expanded[idx]["_receipt_idx"]
+        if not explicit_multi and receipt_idx in seen_item_type:
+            continue  # already claimed one unit of this item for this person
+        seen_idx.add(idx)
+        seen_item_type.add(receipt_idx)
+        deduped.append((idx, item_dict))
+
+    # Restore original receipt order
     deduped.sort(key=lambda x: x[0])
     result_items = [d for _, d in deduped]
 

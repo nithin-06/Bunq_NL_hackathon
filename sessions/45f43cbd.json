@@ -1,0 +1,89 @@
+{
+  "id": "45f43cbd",
+  "created": "2026-04-25T11:13:40.140695",
+  "restaurant_name": "Dinefine Restaurant",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [
+    {
+      "name": "2X Caesar Salad",
+      "price": 24.0
+    },
+    {
+      "name": "Grilled Salmon",
+      "price": 22.0
+    },
+    {
+      "name": "Cheesecake",
+      "price": 7.5
+    },
+    {
+      "name": "2X Sparkling Water",
+      "price": 6.0
+    }
+  ],
+  "total": 51.3,
+  "pot": 39.0,
+  "people": [
+    {
+      "id": "6a9cdf",
+      "name": "Lara",
+      "items": [
+        {
+          "name": "Caesar Salad",
+          "price": 12.0
+        }
+      ],
+      "amount": 12.0,
+      "contact": "sdfhk@gmail.com",
+      "paid": true,
+      "request_id": 2361870,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/7ljtmHhE46BtjRsT6mQRXA",
+      "paid_at": "2026-04-25T11:17:47.250300",
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "f70576",
+      "name": "Nithin",
+      "items": [
+        {
+          "name": "Caesar Salad",
+          "price": 12.0
+        },
+        {
+          "name": "Sparkling Water",
+          "price": 3.0
+        }
+      ],
+      "amount": 15.0,
+      "contact": "laisjf@gmail.com",
+      "paid": true,
+      "request_id": 2361872,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/15rKA8KrwZ4IihkklgMYzz",
+      "paid_at": "2026-04-25T11:17:53.003484",
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "9bf59d",
+      "name": "Roshun",
+      "items": [
+        {
+          "name": "Caesar Salad",
+          "price": 12.0
+        }
+      ],
+      "amount": 12.0,
+      "contact": "fjsdilfjl@gmail.com",
+      "paid": true,
+      "request_id": 2361876,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/7GcbZwFvoobWRN5bJQeUyu",
+      "paid_at": "2026-04-25T11:17:58.254839",
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    }
+  ],
+  "status": "complete",
+  "released": true
+}
