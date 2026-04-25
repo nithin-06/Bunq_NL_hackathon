@@ -1,0 +1,36 @@
+{
+  "id": "061d46f3",
+  "created": "2026-04-25T04:14:20.066086",
+  "restaurant_name": "Albert heijn",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "$",
+  "items": [],
+  "total": 51.3,
+  "pot": 0.0,
+  "people": [
+    {
+      "id": "8f637d",
+      "name": "Lara",
+      "items": [
+        {
+          "name": "Cheese Burger",
+          "price": 8.99
+        },
+        {
+          "name": "House Red Wine",
+          "price": 6.5
+        }
+      ],
+      "amount": 15.49,
+      "contact": "jygyj@gmail.com",
+      "paid": false,
+      "request_id": 2355472,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/4BVWtjQNoFP30HgR99kyz8",
+      "paid_at": null,
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    }
+  ],
+  "status": "collecting",
+  "released": false
+}

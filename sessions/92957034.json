@@ -1,0 +1,94 @@
+{
+  "id": "92957034",
+  "created": "2026-04-25T04:26:50.913708",
+  "restaurant_name": "Albert heijn",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "$",
+  "items": [],
+  "total": 51.3,
+  "pot": 0.0,
+  "people": [
+    {
+      "id": "ee907a",
+      "name": "jutju",
+      "items": [
+        {
+          "name": "Cheese Burger",
+          "price": 8.99
+        },
+        {
+          "name": "House Red Wine",
+          "price": 6.0
+        }
+      ],
+      "amount": 14.99,
+      "contact": "njhg",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/24VFvIzv24kJR9t0iwQlB8",
+      "paid_at": null,
+      "request_method": "bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "829481",
+      "name": "hfhf",
+      "items": [
+        {
+          "name": "Water Bottle",
+          "price": 3.0
+        }
+      ],
+      "amount": 3.0,
+      "contact": "nhfnf",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/6t2M2YBfTY2QTSoAAzlJl3",
+      "paid_at": null,
+      "request_method": "bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "1b135e",
+      "name": "jutju",
+      "items": [
+        {
+          "name": "Grilled Salmon",
+          "price": 14.99
+        }
+      ],
+      "amount": 14.99,
+      "contact": "hfhf",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/PcsamMQF8YK0GjOUAkSoo",
+      "paid_at": null,
+      "request_method": "bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "b7e36a",
+      "name": "hf",
+      "items": [
+        {
+          "name": "Grilled Salmon",
+          "price": 10.99
+        },
+        {
+          "name": "Water",
+          "price": 4.01
+        }
+      ],
+      "amount": 15.0,
+      "contact": "hfh",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/2zOB9r8qo1CmXIPV4Wdcc6",
+      "paid_at": null,
+      "request_method": "bunqme",
+      "request_simulated": false
+    }
+  ],
+  "status": "collecting",
+  "released": false
+}

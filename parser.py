@@ -1,28 +1,19 @@
 """
-parser.py — Convert OCR output into structured receipt data.
-
-Two entry points:
-  parse_receipt_paddle(lines, results, image_shape)
-      → uses bounding box positions + rapidfuzz for best accuracy
-      → called by pipeline.py when a real image is processed
-
-  parse_receipt(raw_text)
-      → text-only fallback, used by demo mode / tests with no image
+parser.py - Convert OCR output into structured receipt data.
 """
+
+from __future__ import annotations
 
 import re
 from typing import Optional
 
-# ---------------------------------------------------------------------------
-# Shared merchant list (merged from both original files)
-# ---------------------------------------------------------------------------
 
 KNOWN_MERCHANTS = [
     "albert heijn", "ah", "jumbo", "lidl", "aldi", "plus", "dirk",
     "spar", "action", "hema", "ikea", "mcdonalds", "mcdonald's",
-    "starbucks", "subway", "ns", "translink",
-    "kruidvat", "primark", "tesco", "blokker", "gamma", "mediamarkt",
-    "coolblue", "decathlon", "zara", "h&m",
+    "starbucks", "subway", "ns", "translink", "kruidvat", "primark",
+    "tesco", "blokker", "gamma", "mediamarkt", "coolblue", "decathlon",
+    "zara", "h&m",
 ]
 
 SKIP_PATTERNS = [
@@ -35,8 +26,28 @@ SKIP_PATTERNS = [
     r"^[-=*_]{3,}$",
     r"datum|date|tijd|time",
     r"kasticket|ticket nr|nr\.",
-    r"punten|points|kaart|loyal",   # loyalty noise from paddle script
+    r"punten|points|kaart|loyal",
 ]
+
+ITEM_SKIP_PATTERNS = [
+    r"\bsubtotaal\b|\bsubtotal\b",
+    r"\btotaal\b|\btotal\b|\bte betalen\b|\bamount due\b",
+    r"\bkorting\b|\bdiscount\b",
+    r"\bvat\b|\bbtw\b|\btax\b",
+    r"\bchange\b|\bcash\b|\bpin\b|\bdebit\b|\bcredit\b",
+]
+
+AMOUNT_RE = re.compile(r"(-?\d+[.,]\d{2})(?!.*\d+[.,]\d{2})")
+
+
+def _normalize(text: str) -> str:
+    text = text.lower()
+    text = re.sub(r"[^a-z0-9 ]", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _titleish(text: str) -> str:
+    return re.sub(r"\s+", " ", text).strip(" -:;,.").title()
 
 
 def _is_noise(line: str) -> bool:
@@ -44,75 +55,8 @@ def _is_noise(line: str) -> bool:
     return any(re.search(p, line_lower) for p in SKIP_PATTERNS)
 
 
-def _normalize(text: str) -> str:
-    text = text.lower()
-    text = re.sub(r"[^a-z ]", " ", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
-# ---------------------------------------------------------------------------
-# Merchant extraction
-# ---------------------------------------------------------------------------
-
-def _extract_merchant_fuzzy(lines: list[str]) -> str:
-    """
-    Use rapidfuzz for fuzzy merchant matching — handles OCR typos well.
-    Falls back gracefully if rapidfuzz isn't installed.
-    """
-    try:
-        from rapidfuzz import fuzz as _fuzz
-    except ImportError:
-        return _extract_merchant_simple(lines)
-
-    candidates = []
-    for i, line in enumerate(lines[:8]):
-        clean = _normalize(line)
-        if len(clean) < 3 or any(c.isdigit() for c in clean):
-            continue
-        candidates.append((clean, 100 - i * 10))
-
-    best_match, best_score = None, 0
-    for cand, pos_weight in candidates:
-        for merchant in KNOWN_MERCHANTS:
-            score = _fuzz.partial_ratio(cand, merchant)
-            if merchant in cand:
-                score += 30
-            score += pos_weight
-            if score > best_score:
-                best_score = score
-                best_match = merchant
-
-    if best_score > 80 and best_match:
-        return best_match.title()
-
-    # Fallback: first non-empty non-digit line
-    for line in lines[:5]:
-        if line.strip() and not any(c.isdigit() for c in line):
-            return line.strip().title()
-    return "Unknown Merchant"
-
-
-def _extract_merchant_simple(lines: list[str]) -> str:
-    """Exact-match fallback used when rapidfuzz isn't available."""
-    for line in lines[:5]:
-        line_lower = line.lower().strip()
-        for merchant in KNOWN_MERCHANTS:
-            if merchant in line_lower:
-                return line.strip().split("\n")[0].title()
-    for line in lines[:5]:
-        if line.strip():
-            return line.strip().title()
-    return "Unknown Merchant"
-
-
-# ---------------------------------------------------------------------------
-# Total + discount extraction (bounding-box aware)
-# ---------------------------------------------------------------------------
-
 def _clean_amount(text: str) -> Optional[float]:
-    cleaned = re.sub(r"['\s]", ".", text.strip())
-    cleaned = re.sub(r"[^\d.,-]", "", cleaned)
-    cleaned = cleaned.replace(",", ".")
+    cleaned = re.sub(r"[^\d,.\-]", "", text.strip()).replace(",", ".")
     cleaned = re.sub(r"\.{2,}", ".", cleaned)
     try:
         return float(cleaned)
@@ -120,110 +64,86 @@ def _clean_amount(text: str) -> Optional[float]:
         return None
 
 
-def _normalize(text: str) -> str:
-    text = text.lower()
-    text = re.sub(r"[^a-z ]", " ", text)
-    return re.sub(r"\s+", " ", text).strip()
-
-
-# ---------------------------------------------------------------------------
-# Merchant — verbatim from test_ocr_paddle.py::extract_merchant()
-# ---------------------------------------------------------------------------
-
-def _extract_merchant_fuzzy(lines: list[str]) -> str:
-    try:
-        from rapidfuzz import fuzz as _fuzz
-    except ImportError:
-        return _extract_merchant_simple(lines)
-
-    candidates = []
-    for i, line in enumerate(lines[:8]):
-        clean = _normalize(line)
+def _candidate_header_lines(lines: list[str]) -> list[str]:
+    headers = []
+    for line in lines[:8]:
+        raw = re.sub(r"\s+", " ", line).strip()
+        clean = _normalize(raw)
+        if not clean or _is_noise(raw):
+            continue
+        if re.search(r"\d+[.,]\d{2}", raw):
+            continue
+        if sum(ch.isdigit() for ch in raw) > 2:
+            continue
         if len(clean) < 3:
             continue
-        if any(char.isdigit() for char in clean):
-            continue
-        candidates.append((clean, 100 - i * 10))
+        headers.append(raw)
+    return headers
 
+
+def _extract_merchant_fuzzy(lines: list[str]) -> str:
+    headers = _candidate_header_lines(lines)
+    if not headers:
+        return "Unknown Merchant"
+
+    first_header = headers[0]
+    try:
+        from rapidfuzz import fuzz
+    except ImportError:
+        return _titleish(first_header)
+
+    normalized_first = _normalize(first_header)
     best_match = None
     best_score = 0
+    for merchant in KNOWN_MERCHANTS:
+        score = fuzz.ratio(normalized_first, merchant)
+        if merchant in normalized_first:
+            score += 8
+        if score > best_score:
+            best_score = score
+            best_match = merchant
 
-    for cand, pos_weight in candidates:
-        for merchant in KNOWN_MERCHANTS:
-            score = _fuzz.partial_ratio(cand, merchant)
-            if merchant in cand:
-                score += 30
-            score += pos_weight
-            if score > best_score:
-                best_score = score
-                best_match = merchant
+    # Only trust fuzzy known-merchant matches when they are very strong.
+    if best_match and best_score >= 93:
+        return _titleish(best_match)
 
-    if best_score > 80 and best_match:
-        return best_match.capitalize()
+    return _titleish(first_header)
 
-    # fallback: first non-empty non-digit line
-    for line in lines[:5]:
-        if line.strip() and not any(c.isdigit() for c in line):
-            return line.strip().title()
-    return "Unknown Merchant"
-
-
-def _extract_merchant_simple(lines: list[str]) -> str:
-    for line in lines[:5]:
-        line_lower = line.lower().strip()
-        for merchant in KNOWN_MERCHANTS:
-            if merchant in line_lower:
-                return line.strip().split("\n")[0].title()
-    for line in lines[:5]:
-        if line.strip():
-            return line.strip().title()
-    return "Unknown Merchant"
-
-
-# ---------------------------------------------------------------------------
-# Total + discount — verbatim from test_ocr_paddle.py::extract_values()
-# ---------------------------------------------------------------------------
 
 def _extract_values_paddle(results: list, image_shape: tuple) -> tuple[Optional[float], Optional[float]]:
-    from rapidfuzz import fuzz
+    try:
+        from rapidfuzz import fuzz
+    except ImportError:
+        fuzz = None
 
     height, width = image_shape[:2]
-
     totals = []
     discounts = []
-
     lines = [r[1][0].lower() for r in results]
 
     for i, line in enumerate(results):
         box, (text, score) = line
-
         if score < 0.5:
             continue
 
-        context = " ".join(lines[max(0, i-2): i+3])
-
-        # skip loyalty/points
+        context = " ".join(lines[max(0, i - 2): i + 3])
         if any(word in context for word in ["punten", "points", "kaart", "loyal"]):
             continue
 
         matches = re.findall(r"-?\d+[.,]\d{2}|\b\d{1,4}\b", text)
-
-        for m in matches:
+        for match in matches:
             try:
-                # prefer decimals strongly
-                if re.fullmatch(r"\d{1,4}", m):
-                    # reject plain integers unless VERY strong total context
-                    if "tota" not in context:
+                if re.fullmatch(r"\d{1,4}", match):
+                    if "tota" not in context and "total" not in context:
                         continue
-                    value = float(m)
+                    value = float(match)
                 else:
-                    value = float(m.replace(",", "."))
-
+                    value = float(match.replace(",", "."))
                 if not (0.0 <= abs(value) <= 1000):
                     continue
 
-                y_avg = sum([p[1] for p in box]) / 4
-                x_avg = sum([p[0] for p in box]) / 4
+                y_avg = sum(p[1] for p in box) / 4
+                x_avg = sum(p[0] for p in box) / 4
 
                 weight = 0
                 if y_avg > height * 0.6:
@@ -231,32 +151,33 @@ def _extract_values_paddle(results: list, image_shape: tuple) -> tuple[Optional[
                 if x_avg > width * 0.5:
                     weight += 20
 
-                # TOTAL
-                if fuzz.partial_ratio(context, "totaal") > 65 or "tota" in context:
+                totalish = "tota" in context or "total" in context
+                discountish = "korting" in context or "discount" in context
+                if fuzz:
+                    totalish = totalish or fuzz.partial_ratio(context, "totaal") > 65
+                    discountish = discountish or fuzz.partial_ratio(context, "korting") > 70
+
+                if totalish:
                     totals.append((value, weight + 300))
                     continue
-
-                # DISCOUNT
-                if fuzz.partial_ratio(context, "korting") > 70:
+                if discountish:
                     discounts.append((abs(value), weight + 200))
                     continue
-
             except Exception:
                 pass
 
-    def select_best(values):
+    def _best(values):
         if not values:
             return None
         values.sort(key=lambda x: x[1], reverse=True)
         return values[0][0]
 
-    total_paid = select_best(totals)
-    discount   = select_best(discounts)
+    total_paid = _best(totals)
+    discount = _best(discounts)
 
-    # force 0 detection — verbatim from original
     for r in results:
-        l = r[1][0]
-        if "tota" in l.lower() and re.search(r"0+[.,]?0*", l):
+        text = r[1][0]
+        if "tota" in text.lower() and re.search(r"0+[.,]?0*", text):
             total_paid = 0.0
 
     if discount is not None and (total_paid is None or total_paid < discount):
@@ -266,7 +187,6 @@ def _extract_values_paddle(results: list, image_shape: tuple) -> tuple[Optional[
 
 
 def _extract_total_text(lines: list[str]) -> Optional[float]:
-    """Text-only total extraction — fallback when no bounding boxes available."""
     total = None
     for line in lines:
         if re.search(r"\btot(aal|al)?\b|\btotal\b|\bte betalen\b|\bamount due\b", line.lower()):
@@ -276,92 +196,154 @@ def _extract_total_text(lines: list[str]) -> Optional[float]:
     return total
 
 
-def _extract_items(lines: list[str]) -> list[str]:
+def _extract_items_with_prices(lines: list[str]) -> list[dict]:
     items = []
-    price_pattern = re.compile(r"\d+[.,]\d{2}")
+    seen = set()
+
     for line in lines:
-        if _is_noise(line):
+        raw = re.sub(r"\s+", " ", line).strip()
+        lower = raw.lower()
+        if _is_noise(raw):
             continue
-        if price_pattern.search(line):
-            item_name = price_pattern.sub("", line).strip()
-            item_name = re.sub(r"\s{2,}", " ", item_name).strip("-. \t")
-            if item_name and len(item_name) > 1:
-                items.append(item_name.title())
+        if any(re.search(p, lower) for p in ITEM_SKIP_PATTERNS):
+            continue
+
+        amount_match = AMOUNT_RE.search(raw)
+        if not amount_match:
+            continue
+
+        price = _clean_amount(amount_match.group(1))
+        if price is None or price < 0 or price > 250:
+            continue
+
+        name = raw[:amount_match.start()].strip(" -:;,.xX\t")
+        name = re.sub(r"\s{2,}", " ", name)
+        name = re.sub(r"^\d+\s*[xX]\s*", "", name)
+        if len(_normalize(name)) < 2:
+            continue
+        if any(ch.isdigit() for ch in name) and len(_normalize(name)) < 5:
+            continue
+
+        normalized_key = (_normalize(name), round(price, 2))
+        if normalized_key in seen:
+            continue
+        seen.add(normalized_key)
+        items.append({"name": _titleish(name), "price": round(price, 2)})
+
+    return items
+
+
+def _extract_items_from_results(results: list, image_shape: tuple) -> list[dict]:
+    rows = []
+    seen = set()
+    height, width = image_shape[:2]
+
+    for line in results:
+        try:
+            box, (text, score) = line
+        except Exception:
+            continue
+        if score < 0.45:
+            continue
+
+        raw = re.sub(r"\s+", " ", str(text)).strip()
+        lower = raw.lower()
+        if _is_noise(raw):
+            continue
+        if any(re.search(p, lower) for p in ITEM_SKIP_PATTERNS):
+            continue
+
+        y_avg = sum(p[1] for p in box) / 4
+        x_avg = sum(p[0] for p in box) / 4
+        if y_avg < height * 0.10:
+            continue
+        if y_avg > height * 0.92:
+            continue
+
+        rows.append({
+            "text": raw,
+            "lower": lower,
+            "x": x_avg,
+            "y": y_avg,
+            "amount": _clean_amount(raw) if AMOUNT_RE.fullmatch(raw.replace(" ", "")) or re.fullmatch(r"-?\d+[.,]\d{2}", raw) else None,
+        })
+
+    price_rows = [r for r in rows if r["amount"] is not None and 0 <= r["amount"] <= 250]
+    text_rows = [r for r in rows if r["amount"] is None]
+
+    items = []
+    for price_row in price_rows:
+        if price_row["x"] < width * 0.45:
+            continue
+
+        candidates = []
+        for text_row in text_rows:
+            if text_row["x"] > price_row["x"]:
+                continue
+            if abs(text_row["y"] - price_row["y"]) > max(14, height * 0.018):
+                continue
+            if len(_normalize(text_row["text"])) < 2:
+                continue
+            candidates.append(text_row)
+
+        if not candidates:
+            continue
+
+        candidates.sort(key=lambda r: (abs(r["y"] - price_row["y"]), r["x"]))
+        name = candidates[0]["text"].strip(" -:;,.")
+        price = round(float(price_row["amount"]), 2)
+        if price <= 0:
+            continue
+
+        key = (_normalize(name), price)
+        if key in seen:
+            continue
+        seen.add(key)
+        items.append({"name": _titleish(name), "price": price})
+
     return items
 
 
 def _detect_currency(lines: list[str]) -> str:
     full = " ".join(lines)
-    if "€" in full:
-        return "€"
-    if "£" in full:
-        return "£"
+    if "€" in full or "â‚¬" in full:
+        return "EUR"
+    if "£" in full or "Â£" in full:
+        return "GBP"
     if "$" in full:
-        return "$"
-    return "€"
+        return "USD"
+    return "EUR"
 
-
-# ---------------------------------------------------------------------------
-# Public entry points
-# ---------------------------------------------------------------------------
 
 def parse_receipt_paddle(lines: list[str], results: list, image_shape: tuple) -> dict:
-    """
-    Rich parser using PaddleOCR structured results.
-    Called by pipeline.py when processing a real image.
-    """
-    merchant         = _extract_merchant_fuzzy(lines)
-    currency         = _detect_currency(lines)
-    total, discount  = _extract_values_paddle(results, image_shape)
-    items            = _extract_items(lines)
+    merchant = _extract_merchant_fuzzy(lines)
+    currency = _detect_currency(lines)
+    total, discount = _extract_values_paddle(results, image_shape)
+    items = _extract_items_from_results(results, image_shape)
+
+    if not items:
+        items = _extract_items_with_prices(lines)
+
+    if total is None:
+        total = _extract_total_text(lines)
 
     return {
         "merchant": merchant,
         "currency": currency,
-        "items":    items,
-        "total":    total,
+        "items": items,
+        "total": total,
         "discount": discount,
     }
 
 
 def parse_receipt(raw_text: str) -> dict:
-    """
-    Text-only parser — used for demo/mock mode or Tesseract fallback.
-    Keeps backward compatibility with pipeline.py's extract_text() path.
-    """
-    lines    = raw_text.splitlines()
+    lines = raw_text.splitlines()
     merchant = _extract_merchant_fuzzy(lines)
-    total    = _extract_total_text(lines)
-    items    = _extract_items(lines)
-
+    total = _extract_total_text(lines)
+    items = _extract_items_with_prices(lines)
     return {
         "merchant": merchant,
-        "items":    items,
-        "total":    total,
+        "items": items,
+        "total": total,
         "discount": None,
     }
-
-
-# ---------------------------------------------------------------------------
-# CLI test
-# ---------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    sample = """
-    ALBERT HEIJN
-    Kalverstraat 100, Amsterdam
-
-    Halfvolle Melk         0.89
-    Volkoren Brood         1.29
-    Sinaasappels 6st       2.49
-    Kaas Jong 500g         3.99
-
-    Subtotaal              8.66
-    BTW 9%                 0.78
-    TOTAAL                 8.66
-
-    Bedankt voor uw bezoek
-    """
-    import json
-    result = parse_receipt(sample)
-    print(json.dumps(result, indent=2))

@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Round — Split the bill in one round</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg:       #09090b;
+  --surface:  #111113;
+  --card:     #18181b;
+  --border:   rgba(255,255,255,0.08);
+  --text:     #fafafa;
+  --muted:    #71717a;
+  --accent:   #6366f1;
+  --accent2:  #8b5cf6;
+  --green:    #22c55e;
+  --amber:    #f59e0b;
+  --red:      #ef4444;
+  --radius:   16px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HEADER ── */
+header {
+  padding: 1.2rem 2rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: rgba(9,9,11,0.85);
+  backdrop-filter: blur(12px);
+  z-index: 100;
+}
+
+.logo {
+  font-size: 1.4rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6, #ec4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.03em;
+}
+
+.logo span { font-weight: 300; }
+
+.account-badge {
+  font-size: 0.72rem;
+  font-family: 'DM Mono', monospace;
+  color: var(--muted);
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+/* ── STEPPER ── */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 1.5rem 2rem;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+}
+
+.step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1.5px solid var(--border);
+  color: var(--muted);
+  background: var(--card);
+  transition: all 0.3s;
+}
+
+.step.active .step-num {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+  box-shadow: 0 0 20px rgba(99,102,241,0.4);
+}
+
+.step.done .step-num {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+}
+
+.step-label {
+  font-size: 0.65rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.step.active .step-label { color: var(--text); }
+
+.step-line {
+  width: 60px;
+  height: 1px;
+  background: var(--border);
+  margin-bottom: 20px;
+}
+
+/* ── MAIN CONTENT ── */
+main {
+  flex: 1;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1rem 1.5rem 3rem;
+}
+
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.card-title {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+/* ── UPLOAD ZONE ── */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--surface);
+}
+
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--accent);
+  background: rgba(99,102,241,0.05);
+}
+
+.upload-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+.upload-text { font-size: 1rem; font-weight: 500; margin-bottom: 0.4rem; }
+.upload-sub  { font-size: 0.8rem; color: var(--muted); }
+
+/* ── RECEIPT PREVIEW ── */
+.receipt-img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+/* ── ITEMS LIST ── */
+.items-list { display: flex; flex-direction: column; gap: 6px; }
+
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--surface);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  font-size: 0.88rem;
+}
+
+.item-name { flex: 1; }
+.item-price {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--accent);
+}
+
+/* ── PERSON CARD ── */
+.person-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 0.75rem;
+  transition: border-color 0.2s;
+}
+
+.person-card.paid { border-color: var(--green); }
+
+.person-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.person-name { font-weight: 600; font-size: 0.95rem; }
+
+.person-amount {
+  font-family: 'DM Mono', monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.person-items {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-bottom: 0.6rem;
+}
+
+.person-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-pending  { background: rgba(245,158,11,0.15);  color: var(--amber); }
+.badge-paid     { background: rgba(34,197,94,0.15);   color: var(--green); }
+.badge-sent     { background: rgba(99,102,241,0.15);  color: var(--accent); }
+
+.qr-link {
+  font-size: 0.72rem;
+  color: var(--accent);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qr-link:hover { text-decoration: underline; }
+
+/* ── POT PROGRESS ── */
+.pot-display {
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.pot-amount {
+  font-size: 2.8rem;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  letter-spacing: -0.04em;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.pot-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.3rem;
+}
+
+.progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 3px;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+/* ── INPUTS ── */
+input[type="text"], input[type="email"] {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.9rem;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+input:focus { border-color: var(--accent); }
+
+.input-group { margin-bottom: 0.75rem; }
+.input-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 500;
+  margin-bottom: 5px;
+  display: block;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.input-row { display: flex; gap: 10px; }
+.input-row > * { flex: 1; }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: white;
+}
+
+.btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+  color: white;
+}
+
+.btn-success:hover { opacity: 0.9; }
+.btn-success:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.btn-full { width: 100%; }
+
+/* ── RECORD BUTTON ── */
+.record-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  transition: all 0.2s;
+  margin: 0 auto;
+}
+
+.record-btn.idle {
+  background: rgba(99,102,241,0.15);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+}
+
+.record-btn.recording {
+  background: var(--red);
+  border: 2px solid var(--red);
+  color: white;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50%       { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(239,68,68,0); }
+}
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 1.2rem;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 8px;
+  border-radius: 7px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--muted);
+  transition: all 0.2s;
+  border: none;
+  background: transparent;
+}
+
+.tab.active {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+/* ── SECTION HEADING ── */
+.section-title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.3rem;
+}
+
+.section-sub {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 1.5rem;
+}
+
+/* ── TOAST ── */
+#toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(100px);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: transform 0.3s;
+  z-index: 999;
+  white-space: nowrap;
+}
+
+#toast.show { transform: translateX(-50%) translateY(0); }
+#toast.success { border-color: var(--green); color: var(--green); }
+#toast.error   { border-color: var(--red);   color: var(--red);   }
+
+/* ── QR MODAL ── */
+#qr-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+
+#qr-modal.open { display: flex; }
+
+.qr-modal-inner {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 2rem;
+  text-align: center;
+  max-width: 320px;
+  width: 90%;
+}
+
+#qr-canvas {
+  margin: 1rem auto;
+  display: flex;
+  justify-content: center;
+}
+
+.qr-modal-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.3rem;
+}
+
+.qr-modal-amount {
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+}
+
+.qr-modal-url {
+  font-size: 0.72rem;
+  color: var(--muted);
+  word-break: break-all;
+  margin-bottom: 1rem;
+}
+
+/* ── CELEBRATION ── */
+.celebration {
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.celebration-emoji { font-size: 4rem; margin-bottom: 1rem; }
+.celebration-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  margin-bottom: 0.5rem;
+}
+.celebration-sub { font-size: 0.9rem; color: var(--muted); }
+
+/* ── LOADING ── */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 1.5rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── DIVIDER ── */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 1rem 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.divider::before, .divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── SUMMARY BAR ── */
+.summary-bar {
+  display: flex;
+  justify-content: space-between;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.summary-item { text-align: center; }
+.summary-val {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+}
+.summary-lbl { font-size: 0.65rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ── UTIL ── */
+.flex { display: flex; }
+.gap-2 { gap: 8px; }
+.mt-1 { margin-top: 0.5rem; }
+.mt-2 { margin-top: 1rem; }
+.text-center { text-align: center; }
+.text-muted { color: var(--muted); font-size: 0.82rem; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">round<span>.</span></div>
+  <div class="account-badge" id="account-badge">connecting...</div>
+</header>
+
+<!-- STEPPER -->
+<div class="stepper">
+  <div class="step active" id="step-1">
+    <div class="step-num">1</div>
+    <div class="step-label">Scan</div>
+  </div>
+  <div class="step-line"></div>
+  <div class="step" id="step-2">
+    <div class="step-num">2</div>
+    <div class="step-label">Assign</div>
+  </div>
+  <div class="step-line"></div>
+  <div class="step" id="step-3">
+    <div class="step-num">3</div>
+    <div class="step-label">Collect</div>
+  </div>
+  <div class="step-line"></div>
+  <div class="step" id="step-4">
+    <div class="step-num">4</div>
+    <div class="step-label">Done</div>
+  </div>
+</div>
+
+<main>
+
+<!-- ═══════════════════════════════════════════════ SCREEN 1: SCAN -->
+<div class="screen active" id="screen-1">
+  <div class="section-title">Scan the bill</div>
+  <div class="section-sub">Upload a photo of the restaurant receipt</div>
+
+  <div class="upload-zone" id="upload-zone">
+    <div class="upload-icon">📷</div>
+    <div class="upload-text">Drop receipt here or click to upload</div>
+    <div class="upload-sub">JPG, PNG — any angle, any lighting</div>
+    <input type="file" id="file-input" accept="image/*" style="display:none">
+  </div>
+
+  <div id="scan-preview" style="display:none" class="card mt-2">
+    <img id="preview-img" class="receipt-img" src="" alt="receipt">
+    <div class="loading" id="scan-loading">
+      <div class="spinner"></div>
+      Reading receipt with AI...
+    </div>
+    <div id="scan-result" style="display:none">
+      <div class="card-title" id="restaurant-name"></div>
+      <div class="items-list" id="items-list"></div>
+      <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:0.85rem; color:var(--muted)">Total</span>
+        <span style="font-family:'DM Mono',monospace; font-size:1.1rem; font-weight:700" id="total-display"></span>
+      </div>
+      <button class="btn btn-primary btn-full mt-2" onclick="goToAssign()">
+        Start splitting →
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ SCREEN 2: ASSIGN -->
+<div class="screen" id="screen-2">
+  <div class="section-title">Who had what?</div>
+  <div class="section-sub">Add each person — voice or text</div>
+
+  <!-- Summary bar -->
+  <div class="summary-bar">
+    <div class="summary-item">
+      <div class="summary-val" id="assign-total">€0</div>
+      <div class="summary-lbl">Total</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-val" id="assign-assigned">€0</div>
+      <div class="summary-lbl">Assigned</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-val" id="assign-remaining">€0</div>
+      <div class="summary-lbl">Remaining</div>
+    </div>
+    <div class="summary-item">
+      <div class="summary-val" id="assign-count">0</div>
+      <div class="summary-lbl">People</div>
+    </div>
+  </div>
+
+  <!-- People added -->
+  <div id="people-list"></div>
+
+  <!-- Add person form -->
+  <div class="card" id="add-person-card">
+    <div class="card-title">Add person</div>
+
+    <div class="input-row">
+      <div class="input-group">
+        <label class="input-label">Name</label>
+        <input type="text" id="person-name" placeholder="e.g. Nithin">
+      </div>
+      <div class="input-group">
+        <label class="input-label">bunq email / phone</label>
+        <input type="text" id="person-contact" placeholder="name@bunq.com">
+      </div>
+    </div>
+
+    <!-- Input mode tabs -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('voice')" id="tab-voice">🎤 Voice</button>
+      <button class="tab" onclick="switchTab('text')" id="tab-text">⌨️ Text</button>
+    </div>
+
+    <!-- Voice mode -->
+    <div id="mode-voice">
+      <div style="text-align:center; padding:1rem 0">
+        <button class="record-btn idle" id="record-btn" onclick="toggleRecord()">🎙️</button>
+        <div style="margin-top:0.8rem; font-size:0.82rem; color:var(--muted)" id="record-status">
+          Press to record — say your name and what you had
+        </div>
+        <div id="transcript-display" style="display:none; margin-top:0.8rem; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:10px 14px; font-size:0.85rem; text-align:left">
+        </div>
+      </div>
+    </div>
+
+    <!-- Text mode -->
+    <div id="mode-text" style="display:none">
+      <div class="input-group">
+        <label class="input-label">What did you have?</label>
+        <input type="text" id="person-text" placeholder="e.g. burger and a beer">
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full mt-2" id="add-btn" onclick="addPerson()" disabled>
+      Add to bill
+    </button>
+  </div>
+
+  <div class="flex gap-2 mt-2">
+    <button class="btn btn-secondary" onclick="goBack(1)" style="flex:1">← Back</button>
+    <button class="btn btn-primary" onclick="goToCollect()" style="flex:2" id="collect-btn" disabled>
+      Send payment requests →
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ SCREEN 3: COLLECT -->
+<div class="screen" id="screen-3">
+  <div class="section-title">Collecting payments</div>
+  <div class="section-sub">Share the QR code or link with each person</div>
+
+  <!-- Pot -->
+  <div class="card">
+    <div class="pot-display">
+      <div class="pot-amount" id="pot-amount">€0.00</div>
+      <div class="pot-label" id="pot-label">of €0.00 collected</div>
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Payment cards -->
+  <div id="payment-list"></div>
+
+  <!-- Actions -->
+  <div class="flex gap-2 mt-2">
+    <button class="btn btn-ghost" onclick="triggerPoll()" style="flex:1">↻ Refresh</button>
+    <button class="btn btn-success btn-full" id="release-btn" onclick="releasePayment()" disabled style="flex:2">
+      🏦 Pay restaurant
+    </button>
+  </div>
+  <div style="text-align:center; margin-top:0.75rem">
+    <span class="text-muted">Payment releases automatically when everyone pays</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ SCREEN 4: DONE -->
+<div class="screen" id="screen-4">
+  <div class="celebration">
+    <div class="celebration-emoji">🎉</div>
+    <div class="celebration-title">All settled!</div>
+    <div class="celebration-sub" id="done-sub">Restaurant has been paid. Enjoy your meal!</div>
+  </div>
+
+  <div class="card mt-2" id="done-summary"></div>
+
+  <button class="btn btn-primary btn-full mt-2" onclick="startOver()">
+    Split another bill
+  </button>
+</div>
+
+</main>
+
+<!-- QR MODAL -->
+<div id="qr-modal">
+  <div class="qr-modal-inner">
+    <div class="qr-modal-name" id="qr-name"></div>
+    <div class="qr-modal-amount" id="qr-amount"></div>
+    <div id="qr-canvas"></div>
+    <div class="qr-modal-url" id="qr-url"></div>
+    <a id="qr-open" href="#" target="_blank" class="btn btn-primary btn-full">Open payment link</a>
+    <button class="btn btn-ghost btn-full mt-1" onclick="closeQR()">Close</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+const API = '';  // same origin
+let sessionId  = null;
+let sessionData = null;
+let recordingBlob = null;
+let mediaRecorder = null;
+let inputMode = 'voice';
+let pollInterval = null;
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+
+window.addEventListener('load', async () => {
+  try {
+    const r = await fetch(`${API}/account`);
+    const d = await r.json();
+    if (d.ok && d.account) {
+      const acc = d.account;
+      document.getElementById('account-badge').textContent =
+        acc.email || acc.iban?.slice(-8) || 'connected';
+    }
+  } catch(e) {
+    document.getElementById('account-badge').textContent = 'offline';
+  }
+
+  // Upload zone
+  const zone = document.getElementById('upload-zone');
+  const fi   = document.getElementById('file-input');
+
+  zone.addEventListener('click', () => fi.click());
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    handleFile(e.dataTransfer.files[0]);
+  });
+  fi.addEventListener('change', () => handleFile(fi.files[0]));
+});
+
+// ── SCREEN NAVIGATION ─────────────────────────────────────────────────────
+
+function showScreen(n) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${n}`).classList.add('active');
+  document.querySelectorAll('.step').forEach((s, i) => {
+    s.classList.remove('active', 'done');
+    if (i + 1 < n) s.classList.add('done');
+    if (i + 1 === n) s.classList.add('active');
+  });
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function goBack(n) { showScreen(n); }
+
+// ── SCREEN 1: SCAN ────────────────────────────────────────────────────────
+
+async function handleFile(file) {
+  if (!file) return;
+
+  // Preview
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('preview-img').src = e.target.result;
+    document.getElementById('scan-preview').style.display = 'block';
+    document.getElementById('scan-loading').style.display = 'flex';
+    document.getElementById('scan-result').style.display  = 'none';
+    document.getElementById('upload-zone').style.display  = 'none';
+  };
+  reader.readAsDataURL(file);
+
+  // Upload
+  const form = new FormData();
+  form.append('image', file);
+
+  try {
+    const resp = await fetch(`${API}/scan`, { method: 'POST', body: form });
+    const data = await resp.json();
+
+    if (!data.ok) throw new Error(data.detail || 'Scan failed');
+
+    sessionId   = data.session_id;
+    sessionData = data;
+
+    // Render items
+    document.getElementById('restaurant-name').textContent =
+      `🍽️ ${data.restaurant}`;
+    document.getElementById('total-display').textContent =
+      `${data.currency || '€'}${data.total?.toFixed(2) || '0.00'}`;
+
+    const list = document.getElementById('items-list');
+    list.innerHTML = '';
+    (data.items || []).forEach(item => {
+      list.innerHTML += `
+        <div class="item-row">
+          <span class="item-name">${item.name}</span>
+          <span class="item-price">€${item.price?.toFixed(2) || '0.00'}</span>
+        </div>`;
+    });
+
+    document.getElementById('scan-loading').style.display = 'none';
+    document.getElementById('scan-result').style.display  = 'block';
+    toast('Receipt scanned! ✅', 'success');
+
+  } catch(e) {
+    document.getElementById('scan-loading').style.display = 'none';
+    document.getElementById('scan-preview').style.display = 'none';
+    document.getElementById('upload-zone').style.display  = 'block';
+    toast(e.message, 'error');
+  }
+}
+
+function goToAssign() {
+  if (!sessionId) return;
+  updateAssignSummary();
+  showScreen(2);
+}
+
+// ── SCREEN 2: ASSIGN ─────────────────────────────────────────────────────
+
+function switchTab(mode) {
+  inputMode = mode;
+  document.getElementById('tab-voice').classList.toggle('active', mode === 'voice');
+  document.getElementById('tab-text').classList.toggle('active',  mode === 'text');
+  document.getElementById('mode-voice').style.display = mode === 'voice' ? 'block' : 'none';
+  document.getElementById('mode-text').style.display  = mode === 'text'  ? 'block' : 'none';
+  checkAddReady();
+}
+
+// Voice recording
+async function toggleRecord() {
+  const btn = document.getElementById('record-btn');
+
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const chunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      btn.className = 'record-btn idle';
+      btn.textContent = '🎙️';
+      document.getElementById('record-status').textContent = 'Processing...';
+
+      recordingBlob = new Blob(chunks, { type: 'audio/webm' });
+
+      // Send to server for transcription + matching
+      const name    = document.getElementById('person-name').value.trim();
+      const contact = document.getElementById('person-contact').value.trim();
+
+      if (!name || !contact) {
+        document.getElementById('record-status').textContent = 'Enter name and contact first, then record';
+        return;
+      }
+
+      const form = new FormData();
+      form.append('session_id', sessionId);
+      form.append('name', name);
+      form.append('contact', contact);
+      form.append('audio', recordingBlob, 'voice.webm');
+
+      try {
+        const resp = await fetch(`${API}/assign/voice`, { method: 'POST', body: form });
+        const data = await resp.json();
+        if (!data.ok) throw new Error(data.detail || 'Assignment failed');
+
+        const transcript = data.transcript || '';
+        const items = (data.items || []).map(i => i.name).join(', ');
+
+        document.getElementById('transcript-display').style.display = 'block';
+        document.getElementById('transcript-display').innerHTML =
+          `<strong>Heard:</strong> "${transcript}"<br>
+           <strong>Matched:</strong> ${items || 'nothing'}<br>
+           <strong>Amount:</strong> €${data.amount?.toFixed(2) || '0.00'}`;
+        document.getElementById('record-status').textContent = 'Tap record to redo, or click Add to bill';
+
+        renderPerson(data);
+        updateAssignSummary();
+        resetAddForm();
+        toast(`${name} added — €${data.amount?.toFixed(2)}`, 'success');
+
+      } catch(e) {
+        document.getElementById('record-status').textContent = `Error: ${e.message}`;
+        toast(e.message, 'error');
+      }
+    };
+
+    mediaRecorder.start();
+    btn.className = 'record-btn recording';
+    btn.textContent = '⏹';
+    document.getElementById('record-status').textContent = '🔴 Recording... tap to stop';
+    document.getElementById('transcript-display').style.display = 'none';
+
+  } catch(e) {
+    toast('Microphone access denied', 'error');
+  }
+}
+
+async function addPerson() {
+  const name    = document.getElementById('person-name').value.trim();
+  const contact = document.getElementById('person-contact').value.trim();
+
+  if (!name || !contact) { toast('Enter name and contact', 'error'); return; }
+
+  if (inputMode === 'text') {
+    const text = document.getElementById('person-text').value.trim();
+    if (!text) { toast('Enter what they had', 'error'); return; }
+
+    const btn = document.getElementById('add-btn');
+    btn.disabled = true;
+    btn.textContent = 'Matching...';
+
+    try {
+      const resp = await fetch(`${API}/assign/text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, name, contact, text }),
+      });
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.detail || 'Failed');
+
+      renderPerson(data);
+      updateAssignSummary();
+      resetAddForm();
+      toast(`${name} added — €${data.amount?.toFixed(2)}`, 'success');
+
+    } catch(e) {
+      toast(e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Add to bill';
+    }
+  }
+  // Voice mode adds on recording stop, not here
+}
+
+function renderPerson(data) {
+  const list = document.getElementById('people-list');
+  const items = (data.items || []).map(i => i.name || i).join(' · ');
+  list.innerHTML += `
+    <div class="person-card" id="pc-${data.person_id}">
+      <div class="person-header">
+        <span class="person-name">${data.name}</span>
+        <span class="person-amount">€${data.amount?.toFixed(2) || '0.00'}</span>
+      </div>
+      <div class="person-items">${items || 'No items matched'}</div>
+      <div class="badge badge-pending">⏳ Pending request</div>
+    </div>`;
+}
+
+function updateAssignSummary() {
+  if (!sessionData) return;
+  const total = sessionData.total || 0;
+  const assigned = Array.from(document.querySelectorAll('.person-card'))
+    .reduce((acc, card) => {
+      const amt = parseFloat(card.querySelector('.person-amount')?.textContent?.replace('€','') || 0);
+      return acc + amt;
+    }, 0);
+
+  document.getElementById('assign-total').textContent     = `€${total.toFixed(2)}`;
+  document.getElementById('assign-assigned').textContent  = `€${assigned.toFixed(2)}`;
+  document.getElementById('assign-remaining').textContent = `€${Math.max(0, total - assigned).toFixed(2)}`;
+  document.getElementById('assign-count').textContent     = document.querySelectorAll('.person-card').length;
+
+  const hasPeople = document.querySelectorAll('.person-card').length > 0;
+  document.getElementById('collect-btn').disabled = !hasPeople;
+}
+
+function checkAddReady() {
+  const name    = document.getElementById('person-name').value.trim();
+  const contact = document.getElementById('person-contact').value.trim();
+  const text    = document.getElementById('person-text').value.trim();
+  const ready   = name && contact && (inputMode === 'voice' || text);
+  document.getElementById('add-btn').disabled = !ready;
+}
+
+['person-name', 'person-contact', 'person-text'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', checkAddReady);
+});
+
+function resetAddForm() {
+  document.getElementById('person-name').value    = '';
+  document.getElementById('person-contact').value = '';
+  document.getElementById('person-text').value    = '';
+  document.getElementById('transcript-display').style.display = 'none';
+  document.getElementById('record-status').textContent = 'Press to record — say your name and what you had';
+  recordingBlob = null;
+  checkAddReady();
+}
+
+async function goToCollect() {
+  const btn = document.getElementById('collect-btn');
+  btn.disabled = true;
+  btn.textContent = 'Sending requests...';
+
+  try {
+    const resp = await fetch(`${API}/collect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.detail || 'Failed to send requests');
+
+    showScreen(3);
+    renderPaymentList(data.requests || []);
+    startPolling();
+    toast('Payment requests sent! 🚀', 'success');
+
+  } catch(e) {
+    toast(e.message, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Send payment requests →';
+  }
+}
+
+// ── SCREEN 3: COLLECT ────────────────────────────────────────────────────
+
+function renderPaymentList(requests) {
+  const list = document.getElementById('payment-list');
+  list.innerHTML = '';
+  requests.forEach(req => {
+    list.innerHTML += `
+      <div class="person-card" id="pay-${req.name?.replace(/\s/g,'_')}">
+        <div class="person-header">
+          <span class="person-name">${req.name}</span>
+          <span class="person-amount">€${parseFloat(req.amount || 0).toFixed(2)}</span>
+        </div>
+        <div class="person-status">
+          <span class="badge badge-sent" id="status-${req.name?.replace(/\s/g,'_')}">📤 Request sent</span>
+          <button class="qr-link" onclick="showQR('${req.name}', ${req.amount}, '${req.url}')">
+            Show QR ↗
+          </button>
+        </div>
+      </div>`;
+  });
+  updatePot(0, sessionData?.total || 0);
+}
+
+function startPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(refreshStatus, 6000);
+  refreshStatus();
+}
+
+async function refreshStatus() {
+  if (!sessionId) return;
+  try {
+    const resp = await fetch(`${API}/session/${sessionId}`);
+    const data = await resp.json();
+    if (!data.ok) return;
+
+    updatePot(data.pot, data.target);
+
+    // Update person statuses
+    (data.session?.people || []).forEach(p => {
+      const key = p.name.replace(/\s/g,'_');
+      const card = document.getElementById(`pay-${key}`);
+      if (!card) return;
+      const badge = document.getElementById(`status-${key}`);
+      if (p.paid) {
+        card.classList.add('paid');
+        if (badge) badge.className = 'badge badge-paid';
+        if (badge) badge.textContent = '✅ Paid';
+      }
+    });
+
+    // Auto-release when all paid
+    if (data.all_paid && !data.session?.released) {
+      clearInterval(pollInterval);
+      document.getElementById('release-btn').disabled = false;
+      toast('Everyone paid! Releasing to restaurant...', 'success');
+      setTimeout(releasePayment, 1500);
+    }
+
+  } catch(e) {
+    console.warn('Poll error:', e);
+  }
+}
+
+function updatePot(pot, target) {
+  const pct = target > 0 ? Math.min(100, (pot / target) * 100) : 0;
+  document.getElementById('pot-amount').textContent = `€${parseFloat(pot || 0).toFixed(2)}`;
+  document.getElementById('pot-label').textContent  = `of €${parseFloat(target || 0).toFixed(2)} collected`;
+  document.getElementById('progress-fill').style.width = `${pct}%`;
+  document.getElementById('release-btn').disabled = pct < 100;
+}
+
+async function triggerPoll() {
+  try {
+    await fetch(`${API}/poll/${sessionId}`, { method: 'POST' });
+    await refreshStatus();
+    toast('Refreshed', 'success');
+  } catch(e) { toast('Poll failed', 'error'); }
+}
+
+async function releasePayment() {
+  const btn = document.getElementById('release-btn');
+  btn.disabled = true;
+  btn.textContent = 'Releasing...';
+
+  try {
+    const resp = await fetch(`${API}/release/${sessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: sessionId,
+        restaurant_email: 'sugardaddy@bunq.com',
+        restaurant_name:  sessionData?.restaurant || 'Restaurant',
+      }),
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.detail || 'Release failed');
+
+    clearInterval(pollInterval);
+    showScreen(4);
+
+    const s = sessionData;
+    document.getElementById('done-sub').textContent =
+      `€${parseFloat(data.amount || 0).toFixed(2)} sent to ${s?.restaurant || 'restaurant'}. All done!`;
+
+    document.getElementById('done-summary').innerHTML = `
+      <div class="card-title">Session summary</div>
+      <div class="item-row"><span>Restaurant</span><span>${s?.restaurant || '—'}</span></div>
+      <div class="item-row"><span>Total collected</span><span style="font-family:'DM Mono',monospace">€${parseFloat(data.amount||0).toFixed(2)}</span></div>
+      <div class="item-row"><span>Session ID</span><span style="font-family:'DM Mono',monospace;font-size:0.75rem">${sessionId}</span></div>`;
+
+    toast('🎉 All done!', 'success');
+
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = '🏦 Pay restaurant';
+    toast(e.message, 'error');
+  }
+}
+
+// ── QR MODAL ──────────────────────────────────────────────────────────────
+
+function showQR(name, amount, url) {
+  document.getElementById('qr-name').textContent   = name;
+  document.getElementById('qr-amount').textContent = `€${parseFloat(amount||0).toFixed(2)}`;
+  document.getElementById('qr-url').textContent    = url;
+  document.getElementById('qr-open').href          = url;
+
+  const canvas = document.getElementById('qr-canvas');
+  canvas.innerHTML = '';
+  new QRCode(canvas, {
+    text:          url,
+    width:         180,
+    height:        180,
+    colorDark:     '#6366f1',
+    colorLight:    '#18181b',
+    correctLevel:  QRCode.CorrectLevel.H,
+  });
+
+  document.getElementById('qr-modal').classList.add('open');
+}
+
+function closeQR() {
+  document.getElementById('qr-modal').classList.remove('open');
+}
+
+document.getElementById('qr-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('qr-modal')) closeQR();
+});
+
+// ── TOAST ─────────────────────────────────────────────────────────────────
+
+function renderPaymentList(requests) {
+  const list = document.getElementById('payment-list');
+  list.innerHTML = '';
+  requests.forEach(req => {
+    const canShowQR = !!req.url && !req.simulated;
+    const qrAction = canShowQR
+      ? `<button class="qr-link" onclick="showQR('${req.name}', ${req.amount}, '${req.url}')">Show QR ↗</button>`
+      : `<span class="text-muted">No scannable QR available</span>`;
+
+    list.innerHTML += `
+      <div class="person-card" id="pay-${req.name?.replace(/\s/g,'_')}">
+        <div class="person-header">
+          <span class="person-name">${req.name}</span>
+          <span class="person-amount">€${parseFloat(req.amount || 0).toFixed(2)}</span>
+        </div>
+        <div class="person-status">
+          <span class="badge badge-sent" id="status-${req.name?.replace(/\s/g,'_')}">${req.simulated ? 'Demo link only' : 'Request sent'}</span>
+          ${qrAction}
+        </div>
+      </div>`;
+  });
+  updatePot(0, sessionData?.total || 0);
+}
+
+function showQR(name, amount, url) {
+  document.getElementById('qr-name').textContent   = name;
+  document.getElementById('qr-amount').textContent = `€${parseFloat(amount || 0).toFixed(2)}`;
+  document.getElementById('qr-url').textContent    = url;
+  document.getElementById('qr-open').href          = url;
+
+  const canvas = document.getElementById('qr-canvas');
+  canvas.innerHTML = '';
+  new QRCode(canvas, {
+    text:         url,
+    width:        180,
+    height:       180,
+    colorDark:    '#000000',
+    colorLight:   '#ffffff',
+    correctLevel: QRCode.CorrectLevel.H,
+  });
+
+  document.getElementById('qr-modal').classList.add('open');
+}
+
+function renderPaymentList(requests) {
+  const list = document.getElementById('payment-list');
+  list.innerHTML = '';
+  requests.forEach(req => {
+    const canShowQR = !!req.url && !req.simulated;
+    const methodLabel = (req.method || 'bunqme').replace('request_inquiry+bunqme', 'bunq + bunqme');
+    const portalAction = req.portal_url
+      ? `<a class="btn btn-primary" href="${req.portal_url}" target="_blank" rel="noopener noreferrer">Open portal</a>`
+      : `<span class="text-muted">Portal unavailable</span>`;
+    const qrAction = canShowQR
+      ? `<button class="btn btn-secondary" onclick="showQR('${req.name}', ${req.amount}, '${req.url}')">Show QR</button>`
+      : `<span class="text-muted">No QR</span>`;
+
+    list.innerHTML += `
+      <div class="person-card" id="pay-${req.name?.replace(/\s/g,'_')}">
+        <div class="person-header">
+          <span class="person-name">${req.name}</span>
+          <span class="person-amount">â‚¬${parseFloat(req.amount || 0).toFixed(2)}</span>
+        </div>
+        <div class="person-items">${req.simulated ? 'Demo fallback link' : 'Real payment portal available'}</div>
+        <div class="person-status">
+          <span class="badge badge-sent" id="status-${req.name?.replace(/\s/g,'_')}">${req.simulated ? 'Demo link only' : methodLabel}</span>
+          <div class="flex gap-2">${portalAction}${qrAction}</div>
+        </div>
+      </div>`;
+  });
+  updatePot(0, sessionData?.total || 0);
+}
+
+function renderPaymentList(requests) {
+  const list = document.getElementById('payment-list');
+  list.innerHTML = '';
+  requests.forEach(req => {
+    const canShowQR = !!req.url && !req.simulated;
+    const methodLabel = (req.method || 'bunqme').replace('request_inquiry+bunqme', 'bunq + bunqme');
+    const portalAction = req.portal_url
+      ? `<a class="btn btn-primary" href="${req.portal_url}" target="_blank" rel="noopener noreferrer">Open portal</a>`
+      : `<span class="text-muted">Portal unavailable</span>`;
+    const qrAction = canShowQR
+      ? `<button class="btn btn-secondary" onclick="showQR('${req.name}', ${req.amount}, '${req.url}')">Show QR</button>`
+      : `<span class="text-muted">No QR</span>`;
+
+    list.innerHTML += `
+      <div class="person-card" id="pay-${req.name?.replace(/\s/g,'_')}">
+        <div class="person-header">
+          <span class="person-name">${req.name}</span>
+          <span class="person-amount">EUR ${parseFloat(req.amount || 0).toFixed(2)}</span>
+        </div>
+        <div class="person-items">${req.simulated ? 'Demo fallback link' : 'Real payment portal available'}</div>
+        <div class="person-status">
+          <span class="badge badge-sent" id="status-${req.name?.replace(/\s/g,'_')}">${req.simulated ? 'Demo link only' : methodLabel}</span>
+          <div class="flex gap-2">${portalAction}${qrAction}</div>
+        </div>
+      </div>`;
+  });
+  updatePot(0, sessionData?.total || 0);
+}
+
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = `show ${type}`;
+  setTimeout(() => el.classList.remove('show', type), 3000);
+}
+
+// ── RESET ─────────────────────────────────────────────────────────────────
+
+function startOver() {
+  sessionId   = null;
+  sessionData = null;
+  recordingBlob = null;
+  if (pollInterval) clearInterval(pollInterval);
+
+  document.getElementById('upload-zone').style.display  = 'block';
+  document.getElementById('scan-preview').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  document.getElementById('items-list').innerHTML = '';
+  document.getElementById('people-list').innerHTML = '';
+  document.getElementById('payment-list').innerHTML = '';
+  document.getElementById('done-summary').innerHTML = '';
+  resetAddForm();
+  updateAssignSummary();
+  showScreen(1);
+}
+</script>
+</body>
+</html>

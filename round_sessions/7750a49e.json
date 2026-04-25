@@ -1,0 +1,84 @@
+{
+  "session_id": "7750a49e",
+  "restaurant_name": "La Bella Italia",
+  "total": 62.0,
+  "pot": 61.99,
+  "restaurant_email": "sugardaddy@bunq.com",
+  "items": [
+    {
+      "name": "Margherita Pizza",
+      "price": 14.5,
+      "claimed_by": "Hi"
+    },
+    {
+      "name": "Pasta Carbonara",
+      "price": 16.0,
+      "claimed_by": "I'M"
+    },
+    {
+      "name": "Caesar Salad",
+      "price": 9.5,
+      "claimed_by": "I'M"
+    },
+    {
+      "name": "Tiramisu",
+      "price": 7.0,
+      "claimed_by": null
+    },
+    {
+      "name": "House Red Wine",
+      "price": 6.5,
+      "claimed_by": "Hi"
+    },
+    {
+      "name": "Sparkling Water",
+      "price": 3.5,
+      "claimed_by": "I'M"
+    },
+    {
+      "name": "Espresso x2",
+      "price": 5.0,
+      "claimed_by": "I'M"
+    }
+  ],
+  "people": [
+    {
+      "name": "Hi",
+      "email": "test+a@bunq.com",
+      "items": [
+        "Margherita Pizza",
+        "House Red Wine"
+      ],
+      "amount_owed": 23.33,
+      "paid": true,
+      "payment_url": "https://bunq.me/round/DEMO-hi-2333",
+      "request_id": -1
+    },
+    {
+      "name": "I'M",
+      "email": "test+b@bunq.com",
+      "items": [
+        "Caesar Salad",
+        "Espresso x2"
+      ],
+      "amount_owed": 16.83,
+      "paid": true,
+      "payment_url": "https://bunq.me/round/DEMO-i'm-2183",
+      "request_id": -1
+    },
+    {
+      "name": "I'M",
+      "email": "test+c@bunq.com",
+      "items": [
+        "Pasta Carbonara",
+        "Sparkling Water"
+      ],
+      "amount_owed": 21.83,
+      "paid": true,
+      "payment_url": null,
+      "request_id": null
+    }
+  ],
+  "created_at": "2026-04-25T01:19:13.428310",
+  "status": "complete"
+}

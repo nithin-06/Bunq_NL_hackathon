@@ -1,0 +1,50 @@
+{
+  "id": "e264e179",
+  "created": "2026-04-25T03:54:35.359115",
+  "restaurant_name": "Albert heijn",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "$",
+  "items": [],
+  "total": 51.3,
+  "pot": 0.0,
+  "people": [
+    {
+      "id": "56214c",
+      "name": "Nithin",
+      "items": [
+        {
+          "name": "Grilled Salmon",
+          "price": 14.99
+        }
+      ],
+      "amount": 14.99,
+      "contact": "nithin@bunq.com",
+      "paid": false,
+      "request_id": 2355394,
+      "bunqme_url": "https://bunq.me/round/14.99",
+      "paid_at": null
+    },
+    {
+      "id": "a6e221",
+      "name": "Lara",
+      "items": [
+        {
+          "name": "Cheesecake",
+          "price": 10.0
+        },
+        {
+          "name": "Sparkling Water",
+          "price": 5.0
+        }
+      ],
+      "amount": 15.0,
+      "contact": "rajunithin2002@gmail.com",
+      "paid": false,
+      "request_id": 2355396,
+      "bunqme_url": "https://bunq.me/round/15.00",
+      "paid_at": null
+    }
+  ],
+  "status": "collecting",
+  "released": false
+}
