@@ -1,0 +1,112 @@
+{
+  "id": "5cf610ed",
+  "created": "2026-04-25T13:09:34.201950",
+  "restaurant_name": "Dinefine Restaurant",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [
+    {
+      "name": "2X Caesar Salad",
+      "price": 24.0
+    },
+    {
+      "name": "Grilled Salmon",
+      "price": 22.0
+    },
+    {
+      "name": "Cheesecake",
+      "price": 7.5
+    },
+    {
+      "name": "2X Sparkling Water",
+      "price": 6.0
+    }
+  ],
+  "total": 51.3,
+  "pot": 59.5,
+  "people": [
+    {
+      "id": "5fc3a4",
+      "name": "lara",
+      "items": [
+        {
+          "claim_id": "2:0",
+          "name": "Cheesecake",
+          "price": 7.5,
+          "receipt_idx": 2,
+          "unit_idx": 0,
+          "original_name": "Cheesecake"
+        }
+      ],
+      "amount": 7.5,
+      "contact": "lidjf",
+      "paid": true,
+      "request_id": null,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/1csijWHi0D4Ef2CeroFJcw",
+      "paid_at": "2026-04-25T13:11:02.617570",
+      "source_mode": "voice",
+      "source_text": "I had a cheesecake.",
+      "transcript": "I had a cheesecake.",
+      "request_method": "bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "60ba31",
+      "name": "Nithin",
+      "items": [
+        {
+          "claim_id": "0:0",
+          "name": "Caesar Salad",
+          "price": 12.0,
+          "receipt_idx": 0,
+          "unit_idx": 0,
+          "original_name": "2X Caesar Salad"
+        },
+        {
+          "claim_id": "0:1",
+          "name": "Caesar Salad",
+          "price": 12.0,
+          "receipt_idx": 0,
+          "unit_idx": 1,
+          "original_name": "2X Caesar Salad"
+        },
+        {
+          "claim_id": "1:0",
+          "name": "Grilled Salmon",
+          "price": 22.0,
+          "receipt_idx": 1,
+          "unit_idx": 0,
+          "original_name": "Grilled Salmon"
+        },
+        {
+          "claim_id": "3:0",
+          "name": "Sparkling Water",
+          "price": 3.0,
+          "receipt_idx": 3,
+          "unit_idx": 0,
+          "original_name": "2X Sparkling Water"
+        },
+        {
+          "claim_id": "3:1",
+          "name": "Sparkling Water",
+          "price": 3.0,
+          "receipt_idx": 3,
+          "unit_idx": 1,
+          "original_name": "2X Sparkling Water"
+        }
+      ],
+      "amount": 52.0,
+      "contact": "lisdjfl",
+      "paid": true,
+      "request_id": null,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/1qEXoo8Gh4M9b2vNNIilBT",
+      "paid_at": "2026-04-25T13:11:11.498024",
+      "source_mode": "text",
+      "source_text": "Caesar salad and grilled salmon and two sparkling water",
+      "request_method": "bunqme",
+      "request_simulated": false
+    }
+  ],
+  "status": "complete",
+  "released": true
+}

@@ -1,0 +1,128 @@
+{
+  "id": "94bff62f",
+  "created": "2026-04-25T13:31:41.750158",
+  "restaurant_name": "Dinefine Restaurant",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [
+    {
+      "name": "2X Caesar Salad",
+      "price": 24.0
+    },
+    {
+      "name": "Grilled Salmon",
+      "price": 22.0
+    },
+    {
+      "name": "Cheesecake",
+      "price": 7.5
+    },
+    {
+      "name": "2X Sparkling Water",
+      "price": 6.0
+    }
+  ],
+  "total": 51.3,
+  "pot": 59.5,
+  "people": [
+    {
+      "id": "4bb801",
+      "name": "Nithin",
+      "items": [
+        {
+          "claim_id": "0:0",
+          "name": "Caesar Salad",
+          "price": 12.0,
+          "receipt_idx": 0,
+          "unit_idx": 0,
+          "original_name": "2X Caesar Salad"
+        },
+        {
+          "claim_id": "0:1",
+          "name": "Caesar Salad",
+          "price": 12.0,
+          "receipt_idx": 0,
+          "unit_idx": 1,
+          "original_name": "2X Caesar Salad"
+        },
+        {
+          "claim_id": "1:0",
+          "name": "Grilled Salmon",
+          "price": 22.0,
+          "receipt_idx": 1,
+          "unit_idx": 0,
+          "original_name": "Grilled Salmon"
+        }
+      ],
+      "amount": 46.0,
+      "contact": "123@gmail.com",
+      "paid": true,
+      "request_id": 2363858,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/3isQeAfpPOJArU0O0hKMJd",
+      "paid_at": "2026-04-25T13:32:45.669450",
+      "source_mode": "voice",
+      "source_text": "I had a two-cease of salad and one grilled salmon.",
+      "transcript": "I had a two-cease of salad and one grilled salmon.",
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "f60bd3",
+      "name": "Lara",
+      "items": [
+        {
+          "claim_id": "3:0",
+          "name": "Sparkling Water",
+          "price": 3.0,
+          "receipt_idx": 3,
+          "unit_idx": 0,
+          "original_name": "2X Sparkling Water"
+        },
+        {
+          "claim_id": "3:1",
+          "name": "Sparkling Water",
+          "price": 3.0,
+          "receipt_idx": 3,
+          "unit_idx": 1,
+          "original_name": "2X Sparkling Water"
+        }
+      ],
+      "amount": 6.0,
+      "contact": "123@bunq.com",
+      "paid": true,
+      "request_id": 2363860,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/2FgLV0COU7uyELQgKpY09Q",
+      "paid_at": "2026-04-25T13:32:52.474862",
+      "source_mode": "text",
+      "source_text": "2 sparkling water",
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    },
+    {
+      "id": "7d4bd3",
+      "name": "roshun",
+      "items": [
+        {
+          "claim_id": "2:0",
+          "name": "Cheesecake",
+          "price": 7.5,
+          "receipt_idx": 2,
+          "unit_idx": 0,
+          "original_name": "Cheesecake"
+        }
+      ],
+      "amount": 7.5,
+      "contact": "123@bunq.com",
+      "paid": true,
+      "request_id": 2363862,
+      "bunqme_url": "https://bunqme.triage.bunq.net/o/2cXPDOFa26eKpO8JNi36uV",
+      "paid_at": "2026-04-25T13:32:58.459197",
+      "source_mode": "text",
+      "source_text": "cheesecake",
+      "request_method": "request_inquiry+bunqme",
+      "request_simulated": false
+    }
+  ],
+  "status": "complete",
+  "released": true
+}

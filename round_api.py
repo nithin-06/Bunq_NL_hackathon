@@ -49,8 +49,13 @@ app.add_middleware(
 
 # Serve the UI
 UI_DIR = Path(__file__).parent / "ui"
+LANDING_INDEX = Path(__file__).parent / "index_frontend.html"
+APP_INDEX = UI_DIR / "index.html"
+DEMO_ASSETS_DIR = Path(__file__).parent / "demo-assets"
 if UI_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(UI_DIR)), name="static")
+if DEMO_ASSETS_DIR.exists():
+    app.mount("/demo-assets", StaticFiles(directory=str(DEMO_ASSETS_DIR)), name="demo-assets")
 
 
 # ---------------------------------------------------------------------------
@@ -80,10 +85,19 @@ class ReleaseRequest(BaseModel):
 
 @app.get("/")
 async def root():
-    index = UI_DIR / "index.html"
-    if index.exists():
-        return FileResponse(str(index))
+    if LANDING_INDEX.exists():
+        return FileResponse(str(LANDING_INDEX))
+    if APP_INDEX.exists():
+        return FileResponse(str(APP_INDEX))
     return {"status": "Round API running", "docs": "/docs"}
+
+
+@app.get("/split-bill")
+@app.get("/app")
+async def splitter_app():
+    if APP_INDEX.exists():
+        return FileResponse(str(APP_INDEX))
+    raise HTTPException(404, "Splitter UI not found")
 
 
 @app.get("/account")

@@ -1,0 +1,30 @@
+{
+  "id": "85b78670",
+  "created": "2026-04-25T13:23:32.157260",
+  "restaurant_name": "Dinefine Restaurant",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [
+    {
+      "name": "2X Caesar Salad",
+      "price": 24.0
+    },
+    {
+      "name": "Grilled Salmon",
+      "price": 22.0
+    },
+    {
+      "name": "Cheesecake",
+      "price": 7.5
+    },
+    {
+      "name": "2X Sparkling Water",
+      "price": 6.0
+    }
+  ],
+  "total": 51.3,
+  "pot": 0.0,
+  "people": [],
+  "status": "assigning",
+  "released": false
+}

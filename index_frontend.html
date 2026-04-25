@@ -1,0 +1,3423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Round — Split the bill</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --bg:       #0a0a0f;
+  --surface:  #111118;
+  --card:     #16161f;
+  --card2:    #1c1c28;
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,255,255,0.12);
+  --text:     #f0f0f5;
+  --muted:    #6b6b80;
+  --muted2:   #9090a8;
+  --bunq:     #00d4aa;
+  --bunq2:    #00b894;
+  --bunq-dim: rgba(0,212,170,0.12);
+  --red:      #ff4757;
+  --amber:    #ffa502;
+  --green:    #2ed573;
+  --radius:   18px;
+  --radius-sm:10px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── HEADER ── */
+header {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: rgba(10,10,15,0.9);
+  backdrop-filter: blur(16px);
+  z-index: 100;
+}
+
+.logo {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--bunq);
+  letter-spacing: -0.04em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo-dot { color: var(--text); font-weight: 300; }
+
+.account-badge {
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--muted2);
+  background: var(--card);
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+/* ── STEPPER ── */
+.stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 2rem;
+}
+
+.step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.step-num {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1.5px solid var(--border2);
+  color: var(--muted);
+  background: var(--card);
+  transition: all 0.25s;
+}
+
+.step.active .step-num { background: var(--bunq); border-color: var(--bunq); color: #000; box-shadow: 0 0 20px rgba(0,212,170,0.3); }
+.step.done   .step-num { background: var(--card2); border-color: var(--bunq); color: var(--bunq); }
+
+.step-label {
+  font-size: 0.62rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
+
+.step.active .step-label { color: var(--bunq); }
+.step.done   .step-label { color: var(--muted2); }
+
+.step-line {
+  width: 56px;
+  height: 1px;
+  background: var(--border2);
+  margin-bottom: 18px;
+  margin-left: 4px;
+  margin-right: 4px;
+}
+
+/* ── MAIN ── */
+main {
+  flex: 1;
+  max-width: 680px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.2rem 1.5rem 4rem;
+}
+
+.screen { display: none; }
+.screen.active { display: block; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.4rem;
+  margin-bottom: 1rem;
+}
+
+.card-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 1rem;
+}
+
+/* ── UPLOAD ── */
+.upload-zone {
+  border: 1.5px dashed var(--border2);
+  border-radius: var(--radius);
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: var(--surface);
+}
+
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: var(--bunq);
+  background: var(--bunq-dim);
+}
+
+.upload-icon { font-size: 2.2rem; margin-bottom: 0.8rem; }
+.upload-text { font-size: 0.95rem; font-weight: 500; margin-bottom: 0.3rem; }
+.upload-sub  { font-size: 0.78rem; color: var(--muted); }
+
+/* ── RECEIPT ITEMS ── */
+.receipt-img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  opacity: 0.9;
+}
+
+.items-list { display: flex; flex-direction: column; gap: 5px; }
+
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 12px;
+  background: var(--surface);
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.item-price {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  color: var(--bunq);
+}
+
+/* ── SUMMARY BAR ── */
+.summary-bar {
+  display: flex;
+  justify-content: space-between;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.2rem;
+  margin-bottom: 1rem;
+}
+
+.summary-item { text-align: center; }
+.summary-val  { font-size: 1.1rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+.summary-lbl  { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 2px; }
+
+/* ── PERSON CARD (assign screen) ── */
+.person-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 0.6rem;
+  transition: border-color 0.2s;
+}
+
+.person-card.paid { border-color: var(--green); }
+
+.person-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.3rem;
+}
+
+.person-name   { font-weight: 600; font-size: 0.92rem; }
+.person-amount { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--bunq); }
+.person-items  { font-size: 0.73rem; color: var(--muted2); margin-bottom: 0.5rem; }
+
+/* ── PAY CARD (collect screen) ── */
+.pay-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.2rem;
+  margin-bottom: 0.8rem;
+  transition: border-color 0.2s;
+}
+
+.pay-card.paid { border-color: var(--green); }
+
+/* ── BADGES ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-pending { background: rgba(255,165,2,0.12); color: var(--amber); }
+.badge-paid    { background: rgba(46,213,115,0.12); color: var(--green); }
+.badge-sent    { background: var(--bunq-dim); color: var(--bunq); }
+
+/* ── INPUTS ── */
+input[type="text"], input[type="email"] {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.88rem;
+  padding: 10px 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus { border-color: var(--bunq); box-shadow: 0 0 0 3px rgba(0,212,170,0.1); }
+
+.input-group  { margin-bottom: 0.7rem; }
+.input-label  { font-size: 0.68rem; color: var(--muted2); font-weight: 500; margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: 0.05em; }
+.input-row    { display: flex; gap: 10px; }
+.input-row > * { flex: 1; }
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  gap: 3px;
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 3px;
+  margin-bottom: 1rem;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--muted);
+  transition: all 0.2s;
+  border: none;
+  background: transparent;
+  font-family: 'Inter', sans-serif;
+}
+
+.tab.active { background: var(--card2); color: var(--text); border: 1px solid var(--border2); }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 11px 20px;
+  border-radius: var(--radius-sm);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s;
+  text-decoration: none;
+}
+
+.btn-primary  { background: var(--bunq); color: #000; }
+.btn-primary:hover { background: var(--bunq2); transform: translateY(-1px); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+.btn-secondary { background: var(--card2); color: var(--text); border: 1px solid var(--border2); }
+.btn-secondary:hover { border-color: var(--bunq); color: var(--bunq); }
+
+.btn-ghost { background: transparent; color: var(--muted2); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--border2); color: var(--text); }
+
+.btn-danger { background: var(--red); color: #fff; }
+.btn-full   { width: 100%; }
+.btn-green  { background: var(--green); color: #000; font-weight: 700; }
+.btn-green:hover { filter: brightness(0.92); }
+.btn-green:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── RECORD BUTTON ── */
+.record-btn {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.7rem;
+  transition: all 0.2s;
+  margin: 0 auto;
+}
+
+.record-btn.idle      { background: var(--bunq-dim); border: 2px solid var(--bunq); color: var(--bunq); }
+.record-btn.recording { background: var(--red); border: 2px solid var(--red); color: white; animation: pulse 1s infinite; }
+
+@keyframes pulse {
+  0%,100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(255,71,87,0.4); }
+  50%     { transform: scale(1.05); box-shadow: 0 0 0 12px rgba(255,71,87,0); }
+}
+
+/* ── POT ── */
+.pot-display { text-align: center; padding: 1.4rem; }
+
+.pot-amount {
+  font-size: 3rem;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: -0.04em;
+  color: var(--bunq);
+}
+
+.pot-label { font-size: 0.78rem; color: var(--muted); margin-top: 0.3rem; }
+
+.progress-bar {
+  height: 5px;
+  background: var(--border2);
+  border-radius: 3px;
+  margin: 1rem 0;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--bunq), var(--green));
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+/* ── SECTION HEADINGS ── */
+.section-title { font-size: 1.4rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.25rem; }
+.section-sub   { font-size: 0.83rem; color: var(--muted2); margin-bottom: 1.4rem; }
+
+/* ── LOADING ── */
+.loading { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 1.4rem; color: var(--muted2); font-size: 0.85rem; }
+.spinner { width: 16px; height: 16px; border: 2px solid var(--border2); border-top-color: var(--bunq); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── BUNQ PAYMENT MODAL ── */
+#pay-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  z-index: 300;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+#pay-modal.open { display: flex; }
+
+.pay-modal-inner {
+  background: #1a1a2e;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 24px;
+  width: min(420px, 100%);
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.5);
+  animation: slideUp 0.25s ease;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* bunq-style header */
+.pm-header {
+  background: linear-gradient(135deg, #00d4aa15, #00b89408);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  padding: 2rem 1.8rem 1.5rem;
+  text-align: center;
+}
+
+.pm-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--bunq), #00b894);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  margin: 0 auto 1rem;
+  box-shadow: 0 8px 24px rgba(0,212,170,0.3);
+}
+
+.pm-sent-by   { font-size: 0.75rem; color: var(--muted2); margin-bottom: 0.3rem; }
+.pm-name      { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.2rem; }
+.pm-desc      { font-size: 0.8rem; color: var(--muted2); }
+.pm-amount    { font-size: 2.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; color: var(--bunq); margin: 1rem 0 0; letter-spacing: -0.04em; }
+
+/* payment options */
+.pm-body { padding: 1.2rem 1.5rem 1.5rem; }
+
+.pm-options-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 0.8rem;
+}
+
+.pm-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 14px;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 8px;
+  text-decoration: none;
+  color: var(--text);
+  transition: all 0.15s;
+  cursor: pointer;
+}
+
+.pm-option:hover { border-color: var(--bunq); background: var(--bunq-dim); }
+
+.pm-option-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.pm-option-info { flex: 1; }
+.pm-option-name { font-size: 0.88rem; font-weight: 600; }
+.pm-option-sub  { font-size: 0.72rem; color: var(--muted2); }
+.pm-option-arrow { color: var(--muted); font-size: 1rem; }
+
+.pm-qr-section { margin-top: 1rem; text-align: center; }
+#pm-qr-canvas { display: flex; justify-content: center; margin: 0.8rem auto; }
+.pm-qr-url { font-size: 0.65rem; color: var(--muted); word-break: break-all; margin-top: 0.5rem; }
+
+.pm-close {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  text-align: center;
+  color: var(--muted2);
+  font-size: 0.8rem;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-family: 'Inter', sans-serif;
+  margin-top: 0.5rem;
+}
+
+.pm-close:hover { color: var(--text); }
+
+/* ── TOAST ── */
+#toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--card2);
+  border: 1px solid var(--border2);
+  border-radius: 12px;
+  padding: 11px 20px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition: transform 0.3s;
+  z-index: 999;
+  white-space: nowrap;
+}
+
+#toast.show    { transform: translateX(-50%) translateY(0); }
+#toast.success { border-color: var(--green); color: var(--green); }
+#toast.error   { border-color: var(--red);   color: var(--red); }
+
+/* ── CELEBRATION ── */
+.celebration { text-align: center; padding: 2rem 0; }
+.celebration-emoji { font-size: 3.5rem; margin-bottom: 0.8rem; }
+.celebration-title { font-size: 1.7rem; font-weight: 700; letter-spacing: -0.03em; }
+.celebration-sub   { font-size: 0.85rem; color: var(--muted2); margin-top: 0.4rem; }
+
+/* ── UTIL ── */
+.flex     { display: flex; }
+.gap-2    { gap: 8px; }
+.mt-1     { margin-top: 0.5rem; }
+.mt-2     { margin-top: 1rem; }
+.text-center { text-align: center; }
+.text-muted  { color: var(--muted); font-size: 0.8rem; }
+.divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0.8rem 0; color: var(--muted); font-size: 0.72rem;
+}
+.divider::before, .divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+/* Demo phone shell */
+body.demo-mode {
+  background:
+    radial-gradient(circle at top left, rgba(0,212,170,0.12), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(0,102,255,0.14), transparent 24%),
+    #050608;
+  display: block;
+  overflow: hidden;
+}
+
+#round-app.hidden { display: none; }
+
+.demo-stage {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.phone-shell {
+  width: min(420px, 100%);
+  height: min(860px, calc(100vh - 48px));
+  background: linear-gradient(180deg, #101218, #020304 72%);
+  border-radius: 42px;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    0 35px 90px rgba(0,0,0,0.55),
+    inset 0 0 0 8px #0a0b0f,
+    inset 0 0 0 10px rgba(255,255,255,0.03);
+  padding: 12px;
+  position: relative;
+}
+
+.phone-shell::before {
+  content: '';
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 144px;
+  height: 34px;
+  border-radius: 999px;
+  background: #060708;
+  border: 1px solid rgba(255,255,255,0.05);
+  z-index: 5;
+}
+
+.phone-screen {
+  height: 100%;
+  border-radius: 32px;
+  overflow: hidden;
+  background: #000;
+  position: relative;
+}
+
+.demo-screen {
+  display: none;
+  height: 100%;
+  padding: 18px 18px 26px;
+  color: #fff;
+  position: relative;
+}
+
+.demo-screen.active {
+  display: flex;
+  flex-direction: column;
+}
+
+.demo-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding: 4px 10px 14px;
+}
+
+.demo-island-pad {
+  height: 26px;
+  flex-shrink: 0;
+}
+
+.demo-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.demo-icons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255,255,255,0.92);
+}
+
+.demo-pill {
+  width: 18px;
+  height: 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.6);
+  position: relative;
+}
+
+.demo-pill::after {
+  content: '';
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  bottom: 1px;
+  width: 12px;
+  border-radius: 999px;
+  background: #ff5f57;
+}
+
+.demo-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.search-screen {
+  background:
+    radial-gradient(circle at 12% 12%, rgba(255,132,66,0.34), transparent 26%),
+    radial-gradient(circle at 86% 74%, rgba(0,120,255,0.2), transparent 24%),
+    radial-gradient(circle at 56% 92%, rgba(144,0,255,0.16), transparent 22%),
+    linear-gradient(180deg, #2d140f, #150d0d 42%, #080607 100%);
+}
+
+.search-top-hit {
+  margin-top: 18px;
+  color: rgba(255,255,255,0.85);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.search-card {
+  margin-top: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.06));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 28px;
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.bunq-app-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.bunq-app-button,
+.bunq-logo-mini {
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, #52d66f 0 14%, #27b75e 14% 28%, #45b7ff 28% 42%, #347cff 42% 56%, #6d61ff 56% 70%, #ff7b3a 70% 84%, #ffd03d 84% 100%);
+}
+
+.bunq-app-button {
+  width: 76px;
+  height: 76px;
+  border: 2px solid rgba(255,255,255,0.28);
+  box-shadow: inset 0 0 0 3px rgba(0,0,0,0.15);
+  cursor: pointer;
+}
+
+.bunq-logo-mini {
+  width: 54px;
+  height: 54px;
+  border: 1px solid rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
+.bunq-app-button::before,
+.bunq-logo-mini::before {
+  content: 'bunq';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.bunq-app-button::before { font-size: 21px; }
+.bunq-logo-mini::before { font-size: 16px; }
+
+.search-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.95);
+}
+
+.search-section-title {
+  color: rgba(255,255,255,0.82);
+  font-size: 17px;
+  font-weight: 500;
+  margin-top: 28px;
+}
+
+.search-badge {
+  color: rgba(255,255,255,0.7);
+  font-size: 15px;
+}
+
+.search-bottom {
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+.search-bar {
+  height: 50px;
+  border-radius: 18px;
+  background: rgba(64,41,52,0.76);
+  border: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  color: rgba(255,255,255,0.88);
+  font-size: 18px;
+}
+
+.keyboard {
+  margin-top: 12px;
+  background: rgba(42,35,47,0.84);
+  border-radius: 20px 20px 0 0;
+  padding: 10px 8px 14px;
+}
+
+.key-row {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.key-row.short { grid-template-columns: 1.2fr repeat(9, 1fr); }
+.key-row.actions { grid-template-columns: 1.1fr 1fr 4.8fr 2.2fr; }
+
+.key {
+  height: 42px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.95);
+  font-size: 18px;
+}
+
+.key.primary { background: #177cf3; }
+.key.space { justify-content: flex-start; padding-left: 18px; }
+
+.bunq-screen {
+  background: #000;
+}
+
+.hero-card,
+.account-card,
+.tx-card,
+.action-chip,
+.option-card,
+.scan-camera,
+.scan-toolbar {
+  border-radius: 22px;
+}
+
+.bunq-home-scroll {
+  height: 100%;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.bunq-home-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.bunq-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #f2f2f2, #cfcfcf);
+  border: 4px solid #0fd18e;
+  box-shadow: 0 0 0 4px rgba(15,209,142,0.18);
+}
+
+.scan-entry {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: rgba(255,255,255,0.95);
+  cursor: pointer;
+}
+
+.bunq-title {
+  font-size: 54px;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  margin: 18px 0 18px;
+}
+
+.hero-card {
+  background: #1f1f22;
+  padding: 22px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.hero-card .label {
+  color: rgba(255,255,255,0.58);
+  text-align: center;
+  font-size: 14px;
+}
+
+.hero-card .amount {
+  text-align: center;
+  font-size: 42px;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  margin: 8px 0 10px;
+}
+
+.hero-card .sub {
+  text-align: center;
+  color: rgba(255,255,255,0.65);
+  font-size: 14px;
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 18px 0 26px;
+}
+
+.action-chip {
+  border: 2px solid;
+  padding: 14px 10px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  background: rgba(255,255,255,0.02);
+}
+
+.action-chip.pay { border-color: #ff8b2d; color: #ffb36d; box-shadow: inset 0 0 0 1px rgba(255,139,45,0.3); }
+.action-chip.request { border-color: #1f94ff; color: #77bbff; box-shadow: inset 0 0 0 1px rgba(31,148,255,0.25); }
+.action-chip.money { border-color: #b22cff; color: #da8aff; box-shadow: inset 0 0 0 1px rgba(178,44,255,0.25); }
+
+.section-head {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.account-card,
+.tx-card,
+.option-card {
+  background: #1f1f22;
+  border: 1px solid rgba(255,255,255,0.05);
+  padding: 18px;
+}
+
+.account-row,
+.tx-row,
+.option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.account-left,
+.tx-left,
+.option-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bank-badge,
+.tx-badge,
+.option-badge {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bank-badge { background: linear-gradient(180deg, #1f8fff, #0f63cb); }
+.tx-badge { background: #424245; color: #ddd; }
+.tx-badge.spar { background: #fff; color: #00963c; border: 3px solid #1dbf61; }
+.option-badge.pay { background: #005fd1; }
+.option-badge.attach { background: #7e6200; }
+.option-badge.split { background: #00a885; }
+
+.account-title,
+.tx-title,
+.option-title {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.account-sub,
+.tx-sub,
+.option-sub {
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.amount-right {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.tx-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.tx-value.neg { color: #ff8a3d; }
+.tx-value.pos { color: #3a9eff; }
+
+.bottom-tabs {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  color: rgba(255,255,255,0.66);
+  font-size: 12px;
+  text-align: center;
+}
+
+.bottom-tabs .active { color: #1f94ff; }
+
+.scan-wrap {
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.12), rgba(255,255,255,0.02)),
+    #040506;
+}
+
+.demo-top-link {
+  color: rgba(255,255,255,0.9);
+  font-size: 16px;
+  cursor: pointer;
+  margin-bottom: 18px;
+}
+
+.scan-camera {
+  flex: 1;
+  border: 1px solid rgba(255,255,255,0.06);
+  background:
+    radial-gradient(circle at 18% 84%, rgba(255,194,78,0.16), transparent 24%),
+    radial-gradient(circle at 80% 18%, rgba(85,170,255,0.18), transparent 28%),
+    linear-gradient(90deg, #286e8d 0 34%, #6f6e67 34% 36%, #c8b28f 36% 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-camera::before {
+  content: '';
+  position: absolute;
+  inset: 18% 4% auto 4%;
+  height: 380px;
+  border-radius: 18px;
+  border: 2px solid rgba(255,255,255,0.7);
+  box-shadow: 0 0 20px rgba(255,255,255,0.08);
+}
+
+.scan-camera::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(0,0,0,0.18), transparent 16%, transparent 82%, rgba(0,0,0,0.28)),
+    radial-gradient(circle at 20% 62%, rgba(0,0,0,0.22), transparent 18%);
+}
+
+.scan-toolbar {
+  margin-top: 16px;
+  padding: 16px 12px 18px;
+  background: rgba(25,25,28,0.92);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.scan-modes {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+
+.scan-modes .active {
+  color: #ffb12f;
+  border-bottom: 2px solid #ffb12f;
+  padding-bottom: 6px;
+}
+
+.camera-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 26px;
+}
+
+.camera-shutter {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 4px solid rgba(255,255,255,0.9);
+  background: #fff;
+  cursor: default;
+}
+
+.camera-side {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.05);
+}
+
+.camera-side.photo-pick {
+  cursor: pointer;
+  position: relative;
+}
+
+.camera-side.photo-pick::before {
+  content: '▧';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.camera-preview-note {
+  position: absolute;
+  left: 16px;
+  bottom: 118px;
+  color: rgba(255,255,255,0.84);
+  font-size: 14px;
+}
+
+.proceed-title {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 42px 0 10px;
+}
+
+.proceed-sub {
+  text-align: center;
+  color: rgba(255,255,255,0.6);
+  font-size: 16px;
+  line-height: 1.35;
+  margin-bottom: 34px;
+}
+
+.option-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.option-card {
+  cursor: pointer;
+}
+
+.split-pill {
+  margin-top: 18px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(0,212,170,0.22);
+  background: rgba(0,212,170,0.12);
+  color: #73efcb;
+  font-size: 13px;
+  align-self: center;
+}
+
+.demo-footer-note {
+  margin-top: auto;
+  text-align: center;
+  color: rgba(255,255,255,0.52);
+  font-size: 12px;
+  padding-top: 18px;
+}
+
+.upload-sheet {
+  margin-top: auto;
+  background: rgba(21,21,24,0.96);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 24px;
+  padding: 16px;
+}
+
+.upload-sheet-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.48);
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+
+.upload-thumb-row {
+  display: flex;
+  gap: 10px;
+}
+
+.upload-thumb {
+  flex: 1;
+  height: 96px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background-color: #17181d;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.upload-thumb::before {
+  content: attr(data-label);
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.upload-thumb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 52%, rgba(0,0,0,0.62));
+}
+
+.upload-thumb span {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  z-index: 1;
+  font-size: 11px;
+  color: rgba(255,255,255,0.82);
+}
+
+.split-flow {
+  background:
+    radial-gradient(circle at top left, rgba(0,212,170,0.14), transparent 28%),
+    radial-gradient(circle at top right, rgba(31,148,255,0.10), transparent 24%),
+    linear-gradient(180deg, #060809, #000 22%, #020304 100%);
+}
+
+.split-flow .proceed-title {
+  font-size: 28px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+}
+
+.split-flow .proceed-sub {
+  color: rgba(255,255,255,0.72);
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+.owner-summary-card,
+.editable-item-card {
+  background:
+    linear-gradient(180deg, rgba(0,212,170,0.08), rgba(255,255,255,0.01) 22%),
+    #1a1b20;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 22px;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.22);
+}
+
+.owner-summary-card {
+  padding: 18px;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.owner-summary-card::before {
+  content: '';
+  position: absolute;
+  inset: auto -20px -60px auto;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,212,170,0.16), transparent 68%);
+  pointer-events: none;
+}
+
+.owner-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.summary-stat {
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.summary-stat-label {
+  color: rgba(164, 252, 225, 0.72);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.summary-stat-value {
+  margin-top: 6px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+
+.editable-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.editable-item-card {
+  padding: 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015)),
+    #17181d;
+  position: relative;
+  overflow: hidden;
+}
+
+.editable-item-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--item-accent, var(--bunq));
+}
+
+.editable-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.editable-item-index {
+  color: var(--item-accent, rgba(255,255,255,0.48));
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.editable-item-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--item-accent, #00d4aa) 18%, transparent);
+  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--item-accent, #00d4aa) 42%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.editable-grid {
+  display: grid;
+  grid-template-columns: 1.8fr 0.7fr 0.9fr;
+  gap: 10px;
+}
+
+.editable-field label {
+  display: block;
+  color: rgba(255,255,255,0.58);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.editable-field input {
+  width: 100%;
+  background: #101116;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 14px;
+  color: #fff;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+}
+
+.editable-field input:focus {
+  outline: none;
+  border-color: rgba(0,212,170,0.55);
+  box-shadow: 0 0 0 3px rgba(0,212,170,0.12);
+}
+
+.owner-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.owner-actions .btn {
+  flex: 1;
+  min-width: 140px;
+}
+
+.receipt-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.78);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 400;
+  padding: 18px;
+}
+
+.receipt-modal.open {
+  display: flex;
+}
+
+.receipt-modal-card {
+  width: 100%;
+  max-height: 100%;
+  background: #111;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 24px;
+  overflow: hidden;
+}
+
+.receipt-modal-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  color: #fff;
+  font-size: 15px;
+}
+
+.receipt-modal-top button {
+  background: transparent;
+  color: rgba(255,255,255,0.74);
+  border: none;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.receipt-modal-body {
+  padding: 0 16px 16px;
+}
+
+.receipt-modal-body img {
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  background: #fff;
+  border-radius: 18px;
+}
+
+.share-card,
+.qr-card,
+.guest-item-card,
+.guest-note-card,
+.participant-card,
+.history-card,
+.status-banner {
+  background:
+    linear-gradient(180deg, rgba(0,212,170,0.06), rgba(255,255,255,0.015) 22%),
+    #1a1b20;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 22px;
+  box-shadow: 0 14px 32px rgba(0,0,0,0.22);
+}
+
+.share-card,
+.guest-note-card,
+.participant-card,
+.history-card,
+.status-banner {
+  padding: 18px;
+}
+
+.qr-card {
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 14px;
+  position: relative;
+  overflow: hidden;
+}
+
+.qr-card::before {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -30px;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,212,170,0.16), transparent 68%);
+  pointer-events: none;
+}
+
+.qr-box {
+  width: 200px;
+  height: 200px;
+  margin: 0 auto 14px;
+  background: #fff;
+  border-radius: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0,212,170,0.12);
+}
+
+.share-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(255,255,255,0.035);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 16px;
+  padding: 12px 14px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.82);
+  margin-top: 12px;
+}
+
+.share-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.share-actions .btn {
+  flex: 1;
+  min-width: 140px;
+}
+
+.guest-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.guest-item-card {
+  padding: 16px;
+  transition: border-color 0.18s, transform 0.18s;
+}
+
+.guest-item-card:hover {
+  border-color: rgba(0,212,170,0.28);
+  transform: translateY(-1px);
+}
+
+.guest-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.guest-item-name {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.guest-item-sub {
+  color: rgba(255,255,255,0.55);
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.qty-stepper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #0f1014;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 14px;
+  padding: 6px;
+}
+
+.qty-stepper button {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 10px;
+  background: rgba(0,212,170,0.16);
+  color: #fff;
+  cursor: pointer;
+}
+
+.qty-stepper input {
+  width: 40px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  text-align: center;
+  font-size: 14px;
+}
+
+.qty-stepper input:focus {
+  outline: none;
+}
+
+.voice-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.voice-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(0,212,170,0.2), rgba(0,212,170,0.1));
+  color: #73efcb;
+  border: 1px solid rgba(0,212,170,0.3);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,212,170,0.12);
+}
+
+.guest-note-card textarea,
+.guest-name-input {
+  width: 100%;
+  background: #101116;
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: 14px;
+  color: #fff;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-family: 'Inter', sans-serif;
+}
+
+.guest-note-card textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.subtotal-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(0,212,170,0.08), rgba(255,255,255,0.02)),
+    rgba(255,255,255,0.03);
+  border: 1px solid rgba(0,212,170,0.18);
+  margin-top: 14px;
+}
+
+.participant-stack,
+.history-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.participant-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.participant-name {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.participant-meta {
+  color: rgba(255,255,255,0.6);
+  font-size: 13px;
+  margin-top: 6px;
+}
+
+.claim-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.claim-tag {
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.055);
+  color: rgba(255,255,255,0.82);
+  font-size: 12px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-pill.paid {
+  background: rgba(46,213,115,0.12);
+  color: #55df93;
+}
+
+.status-pill.pending {
+  background: rgba(255,177,47,0.12);
+  color: #ffb12f;
+}
+
+.status-banner.complete {
+  background: rgba(0,212,170,0.12);
+  border-color: rgba(0,212,170,0.24);
+  color: #8cf4da;
+}
+
+.summary-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.history-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.history-sub {
+  color: rgba(255,255,255,0.58);
+  font-size: 13px;
+  margin-top: 6px;
+}
+</style>
+</head>
+<body class="demo-mode">
+
+<div id="demo-stage" class="demo-stage">
+  <div class="phone-shell">
+    <div class="phone-screen">
+      <section class="demo-screen search-screen active" id="demo-screen-home">
+        <div class="demo-status">
+          <div class="demo-time">10:57 ◐</div>
+          <div class="demo-icons">
+            <span>5G</span>
+            <span class="demo-pill"></span>
+          </div>
+        </div>
+        <div class="demo-island-pad"></div>
+        <div class="demo-content" style="display:flex;flex-direction:column">
+          <div class="search-top-hit">Top Hit</div>
+          <div class="search-card">
+            <div class="bunq-app-tile">
+              <button type="button" class="bunq-app-button" onclick="showDemoScreen('bunq')"></button>
+              <span>bunq</span>
+            </div>
+          </div>
+
+          <div class="search-section-title">Suggestions</div>
+          <div class="search-row">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:32px;height:32px;border-radius:10px;background:#3e8cff;display:flex;align-items:center;justify-content:center;font-size:16px">🧭</div>
+              <div style="font-size:18px;font-weight:600">bunq</div>
+            </div>
+            <div class="search-badge">↗</div>
+          </div>
+
+          <div class="search-section-title">Settings</div>
+          <div class="search-row">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="bunq-logo-mini"></div>
+              <div>
+                <div style="font-size:18px;font-weight:600">bunq</div>
+                <div class="search-badge">Apps</div>
+              </div>
+            </div>
+            <div class="search-badge">Search in App ↗</div>
+          </div>
+
+          <div class="search-section-title">Websites</div>
+          <div class="search-row">
+            <div style="display:flex;align-items:center;gap:12px">
+              <div style="width:32px;height:32px;border-radius:10px;background:#4a6fff"></div>
+              <div style="font-size:17px;font-weight:500">Send me money with bunq.me</div>
+            </div>
+            <div class="search-badge">Show More</div>
+          </div>
+
+          <div class="search-bottom">
+            <div class="search-bar">⌕ bunq</div>
+            <div class="keyboard">
+              <div class="key-row">
+                <div class="key">q</div><div class="key">w</div><div class="key">e</div><div class="key">r</div><div class="key">t</div><div class="key">y</div><div class="key">u</div><div class="key">i</div><div class="key">o</div><div class="key">p</div>
+              </div>
+              <div class="key-row">
+                <div class="key">a</div><div class="key">s</div><div class="key">d</div><div class="key">f</div><div class="key">g</div><div class="key">h</div><div class="key">j</div><div class="key">k</div><div class="key">l</div><div class="key">⌫</div>
+              </div>
+              <div class="key-row short">
+                <div class="key">⇧</div><div class="key">z</div><div class="key">x</div><div class="key">c</div><div class="key">v</div><div class="key">b</div><div class="key">n</div><div class="key">m</div><div class="key">,</div><div class="key">.</div>
+              </div>
+              <div class="key-row actions">
+                <div class="key">123</div><div class="key">☺</div><div class="key space">space</div><div class="key primary">→</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-screen bunq-screen" id="demo-screen-bunq">
+        <div class="demo-status">
+          <div class="demo-time">10:57 ◐</div>
+          <div class="demo-icons">
+            <span>5G</span>
+            <span class="demo-pill"></span>
+          </div>
+        </div>
+        <div class="demo-island-pad"></div>
+        <div class="demo-content bunq-home-scroll">
+          <div class="bunq-home-top">
+            <div class="bunq-avatar"></div>
+            <div class="scan-entry" onclick="showDemoScreen('scan')">⌘</div>
+          </div>
+          <div class="bunq-title">Home</div>
+
+          <div class="hero-card">
+            <div class="label">Net Wealth</div>
+            <div class="amount">€ 1.678,98</div>
+            <div class="sub">💡 Solana is up by 1.21% today</div>
+          </div>
+
+          <div class="action-row">
+            <div class="action-chip pay">Pay</div>
+            <div class="action-chip request">Request</div>
+            <div class="action-chip money">Add Money</div>
+          </div>
+
+          <div class="section-head">Bank Accounts</div>
+          <div class="account-card">
+            <div class="account-row">
+              <div class="account-left">
+                <div class="bank-badge">🏦</div>
+                <div>
+                  <div class="account-title">Bank Account</div>
+                </div>
+              </div>
+              <div class="amount-right">€ 1.678,98</div>
+            </div>
+            <div class="account-sub" style="margin-top:16px;color:#1f94ff;">Add an Extra Bank Account</div>
+          </div>
+
+          <div class="section-head" style="margin-top:26px">Recent Transactions</div>
+          <div class="tx-card">
+            <div class="tx-list">
+              <div class="tx-row">
+                <div class="tx-left">
+                  <div class="tx-badge">⇪</div>
+                  <div>
+                    <div class="tx-title">Shared Request</div>
+                    <div class="tx-sub">Shared Request canceled</div>
+                  </div>
+                </div>
+                <div class="amount-right tx-value pos">€ 1,00</div>
+              </div>
+              <div class="tx-row">
+                <div class="tx-left">
+                  <div class="tx-badge spar">▲</div>
+                  <div>
+                    <div class="tx-title">SPAR</div>
+                    <div class="tx-sub">Apple Pay payment</div>
+                  </div>
+                </div>
+                <div class="amount-right tx-value neg">€ -2,10</div>
+              </div>
+              <div class="tx-row">
+                <div class="tx-left">
+                  <div class="tx-badge spar">▲</div>
+                  <div>
+                    <div class="tx-title">SPAR</div>
+                    <div class="tx-sub">Apple Pay payment</div>
+                  </div>
+                </div>
+                <div class="amount-right tx-value neg">€ -5,98</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bottom-tabs">
+            <div class="active">Home</div>
+            <div>Cards</div>
+            <div>Savings</div>
+            <div>Stocks</div>
+            <div>Crypto</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-screen scan-wrap" id="demo-screen-scan">
+        <div class="demo-status">
+          <div class="demo-time">10:58 ◐</div>
+          <div class="demo-icons">
+            <span>5G</span>
+            <span class="demo-pill"></span>
+          </div>
+        </div>
+        <div class="demo-island-pad"></div>
+        <div class="demo-content" style="display:flex;flex-direction:column">
+          <div class="demo-top-link" onclick="showDemoScreen('bunq')">Cancel</div>
+          <div class="scan-camera">
+            <div class="camera-preview-note">Tap the photo icon to upload receipt</div>
+          </div>
+          <div class="scan-toolbar">
+            <div class="scan-modes">
+              <span class="active">SCAN QR</span>
+              <span>SCAN INVOICE</span>
+            </div>
+            <div class="camera-controls">
+              <div class="camera-side photo-pick" onclick="showDemoScreen('upload')"></div>
+              <button class="camera-shutter" type="button"></button>
+              <div class="camera-side"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-screen bunq-screen" id="demo-screen-upload">
+        <div class="demo-status">
+          <div class="demo-time">10:58 ◐</div>
+          <div class="demo-icons">
+            <span>5G</span>
+            <span class="demo-pill"></span>
+          </div>
+        </div>
+        <div class="demo-island-pad"></div>
+        <div class="demo-content" style="display:flex;flex-direction:column">
+          <div class="demo-top-link" onclick="showDemoScreen('scan')">Photo Library</div>
+          <div class="scan-camera">
+            <div class="camera-preview-note">Choose one of the invoice photos below</div>
+          </div>
+          <div class="upload-sheet">
+            <div class="upload-sheet-title">Recent Photos</div>
+            <div class="upload-thumb-row">
+              <div class="upload-thumb" data-label="DineFine" style="background-image:url('./demo-assets/invoice-1.jpg')" onclick="selectInvoice('invoice-1')"><span>01</span></div>
+              <div class="upload-thumb" data-label="Harbor Lane" style="background-image:url('./demo-assets/invoice-2.jpg')" onclick="selectInvoice('invoice-2')"><span>02</span></div>
+              <div class="upload-thumb" data-label="Breakfast Club" style="background-image:url('./demo-assets/invoice-3.jpg')" onclick="selectInvoice('invoice-3')"><span>03</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-screen bunq-screen" id="demo-screen-proceed">
+        <div class="demo-status">
+          <div class="demo-time">10:58 ◐</div>
+          <div class="demo-icons">
+            <span>5G</span>
+            <span class="demo-pill"></span>
+          </div>
+        </div>
+        <div class="demo-island-pad"></div>
+        <div class="demo-content" style="display:flex;flex-direction:column">
+          <div class="demo-top-link" onclick="showDemoScreen('scan')">‹ Back</div>
+          <div class="proceed-title">Choose How to Proceed</div>
+          <div class="proceed-sub">Make a new payment with auto-filled details or attach your invoices to an existing payment</div>
+
+          <div class="option-stack">
+            <div class="option-card">
+              <div class="option-row">
+                <div class="option-left">
+                  <div class="option-badge pay">💳</div>
+                  <div>
+                    <div class="option-title">Pay Invoice</div>
+                    <div class="option-sub">Upload your invoice to autofill payment details. The invoice will be attached after payment is completed.</div>
+                  </div>
+                </div>
+                <div>›</div>
+              </div>
+            </div>
+
+            <div class="option-card">
+              <div class="option-row">
+                <div class="option-left">
+                  <div class="option-badge attach">＋</div>
+                  <div>
+                    <div class="option-title">Attach Invoice</div>
+                    <div class="option-sub">Quickly attach a photo of your receipt or invoice to your payments for easy organization.</div>
+                  </div>
+                </div>
+                <div>›</div>
+              </div>
+            </div>
+
+            <div class="option-card" onclick="openSplitBillEditor()">
+              <div class="option-row">
+                <div class="option-left">
+                  <div class="option-badge split">⇄</div>
+                  <div>
+                    <div class="option-title">Split the Bill</div>
+                    <div class="option-sub">Scan a receipt, divide the total with friends, and continue to payment collection inside Round.</div>
+                  </div>
+                </div>
+                <div>›</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="split-bill-status" class="split-pill">New demo option added here</div>
+          <div class="demo-footer-note">This phone flow is now scripted and clickable.</div>
+        </div>
+      </section>
+
+      <section class="demo-screen bunq-screen split-flow" id="demo-screen-owner">
+        <div class="demo-status">
+          <div class="demo-time">10:59 ◐</div>
+          <div class="demo-icons">
+            <span>5G</span>
+            <span class="demo-pill"></span>
+          </div>
+        </div>
+        <div class="demo-island-pad"></div>
+        <div class="demo-content bunq-home-scroll" style="padding-bottom:16px">
+          <div class="demo-top-link" onclick="showDemoScreen('proceed')">‹ Back</div>
+          <div class="proceed-title" style="text-align:left;margin:8px 0 8px">Split Bill</div>
+          <div class="proceed-sub" style="text-align:left;margin-bottom:18px">The bill owner can review and edit the receipt before sharing it with the group.</div>
+
+          <div class="owner-summary-card">
+            <div class="summary-stat-label">Restaurant</div>
+            <div class="summary-stat-value" id="owner-restaurant-name" style="font-size:28px">DineFine Restaurant</div>
+            <div class="owner-summary-grid">
+              <div class="summary-stat">
+                <div class="summary-stat-label">Owner Pays Total</div>
+                <input id="owner-total-input" type="text" value="€51.30" style="margin-top:8px;background:#111118;border:1px solid rgba(255,255,255,0.08);border-radius:14px;color:#fff;padding:12px 14px;font-size:18px;font-family:'Inter',sans-serif" oninput="updateOwnerSummary()">
+              </div>
+              <div class="summary-stat">
+                <div class="summary-stat-label">Items</div>
+                <div class="summary-stat-value" id="owner-item-count">4</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-head" style="margin-bottom:12px">Bill Breakdown</div>
+          <div class="editable-list" id="owner-items-list"></div>
+
+          <div class="owner-actions">
+            <button class="btn btn-secondary" type="button" onclick="openReceiptModal()">Open Receipt</button>
+            <button class="btn btn-primary" type="button" onclick="saveOwnerDraft()">Save Draft</button>
+            <button class="btn btn-primary" type="button" onclick="goToShareScreen()">Share Bill</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-screen bunq-screen split-flow" id="demo-screen-share">
+        <div class="demo-status">
+          <div class="demo-time">11:00 ◐</div>
+          <div class="demo-icons">
+            <span>5G</span>
+            <span class="demo-pill"></span>
+          </div>
+        </div>
+        <div class="demo-island-pad"></div>
+        <div class="demo-content bunq-home-scroll" style="padding-bottom:16px">
+          <div class="demo-top-link" onclick="showDemoScreen('owner')">‹ Back</div>
+          <div class="proceed-title" style="text-align:left;margin:8px 0 8px">Share Split</div>
+          <div class="proceed-sub" style="text-align:left;margin-bottom:18px">Send the QR or the link so everyone can choose what they ate and pay their part.</div>
+
+          <div class="share-card" style="padding:18px;margin-bottom:14px">
+            <div class="summary-stat-label">Session</div>
+            <div class="summary-stat-value" id="share-restaurant-title" style="font-size:26px">DineFine Restaurant</div>
+            <div class="summary-two-col">
+              <div class="summary-stat">
+                <div class="summary-stat-label">Bill Total</div>
+                <div class="summary-stat-value" id="share-total">€51.30</div>
+              </div>
+              <div class="summary-stat">
+                <div class="summary-stat-label">Joined</div>
+                <div class="summary-stat-value" id="share-joined">0</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="qr-card">
+            <div class="summary-stat-label" style="margin-bottom:10px">Scan to join</div>
+            <div class="qr-box"><div id="demo-qr-box"></div></div>
+            <div style="font-size:13px;color:rgba(255,255,255,0.65)">Guests can open the same page even without the bunq app.</div>
+            <div class="share-link">
+              <span id="share-link-text">https://bunq.demo/split/round-001</span>
+              <button class="btn btn-secondary" type="button" style="padding:8px 12px" onclick="copyShareLink()">Copy</button>
+            </div>
+            <div class="share-actions">
+              <button class="btn btn-primary" type="button" onclick="openGuestPage()">Open Guest Page</button>
+              <button class="btn btn-secondary" type="button" onclick="showDemoScreen('manager')">Manager View</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-screen bunq-screen split-flow" id="demo-screen-guest">
+        <div class="demo-status">
+          <div class="demo-time">11:01 ◐</div>
+          <div class="demo-icons">
+            <span>5G</span>
+            <span class="demo-pill"></span>
+          </div>
+        </div>
+        <div class="demo-island-pad"></div>
+        <div class="demo-content bunq-home-scroll" style="padding-bottom:16px">
+          <div class="demo-top-link" onclick="showDemoScreen('share')">‹ Back</div>
+          <div class="proceed-title" style="text-align:left;margin:8px 0 8px">Join This Bill</div>
+          <div class="proceed-sub" id="guest-restaurant-sub" style="text-align:left;margin-bottom:18px">Pick the items you had and pay your share.</div>
+
+          <div class="guest-note-card" style="margin-bottom:14px">
+            <div class="summary-stat-label">Your Name</div>
+            <input class="guest-name-input" id="guest-name-input" type="text" placeholder="e.g. Alex">
+          </div>
+
+          <div class="guest-note-card voice-card">
+            <div>
+              <div style="font-size:16px;font-weight:700">Voice selection</div>
+              <div class="participant-meta">Tap once to simulate “I had…” and prefill some items.</div>
+            </div>
+            <div class="voice-chip" onclick="simulateGuestVoice()">🎤 Use Voice</div>
+          </div>
+
+          <div class="guest-list" id="guest-items-list"></div>
+
+          <div class="guest-note-card" style="margin-top:14px">
+            <div class="summary-stat-label">Optional message</div>
+            <textarea id="guest-note-input" placeholder="I had the salmon and shared the dessert."></textarea>
+          </div>
+
+          <div class="subtotal-bar">
+            <div>
+              <div class="summary-stat-label">Your subtotal</div>
+              <div class="summary-stat-value" id="guest-subtotal" style="font-size:24px">€0.00</div>
+            </div>
+            <button class="btn btn-primary" type="button" onclick="continueGuestToPay()">Continue</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-screen bunq-screen split-flow" id="demo-screen-guestpay">
+        <div class="demo-status">
+          <div class="demo-time">11:02 ◐</div>
+          <div class="demo-icons">
+            <span>5G</span>
+            <span class="demo-pill"></span>
+          </div>
+        </div>
+        <div class="demo-island-pad"></div>
+        <div class="demo-content bunq-home-scroll" style="padding-bottom:16px">
+          <div class="demo-top-link" onclick="showDemoScreen('guest')">‹ Back</div>
+          <div class="proceed-title" style="text-align:left;margin:8px 0 8px">Confirm and Pay</div>
+          <div class="proceed-sub" style="text-align:left;margin-bottom:18px">Review what you selected before sending payment.</div>
+
+          <div class="share-card" style="padding:18px;margin-bottom:14px">
+            <div class="summary-stat-label">Guest</div>
+            <div class="summary-stat-value" id="guestpay-name" style="font-size:26px">Guest</div>
+            <div class="participant-meta" id="guestpay-items">No items selected</div>
+            <div class="summary-two-col">
+              <div class="summary-stat">
+                <div class="summary-stat-label">Amount</div>
+                <div class="summary-stat-value" id="guestpay-total">€0.00</div>
+              </div>
+              <div class="summary-stat">
+                <div class="summary-stat-label">Payment</div>
+                <div class="summary-stat-value" style="font-size:20px">bunq / link</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="owner-actions">
+            <button class="btn btn-secondary" type="button" onclick="submitGuestClaim(false)">Submit Without Paying</button>
+            <button class="btn btn-primary" type="button" onclick="submitGuestClaim(true)">Pay My Share</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-screen bunq-screen split-flow" id="demo-screen-manager">
+        <div class="demo-status">
+          <div class="demo-time">11:03 ◐</div>
+          <div class="demo-icons">
+            <span>5G</span>
+            <span class="demo-pill"></span>
+          </div>
+        </div>
+        <div class="demo-island-pad"></div>
+        <div class="demo-content bunq-home-scroll" style="padding-bottom:16px">
+          <div class="demo-top-link" onclick="showDemoScreen('share')">‹ Back</div>
+          <div class="proceed-title" style="text-align:left;margin:8px 0 8px">Split Status</div>
+          <div class="proceed-sub" style="text-align:left;margin-bottom:18px">Track who joined, what they claimed, and who has already paid.</div>
+
+          <div id="manager-complete-banner"></div>
+
+          <div class="share-card" style="padding:18px;margin-bottom:14px">
+            <div class="summary-stat-label">Organizer summary</div>
+            <div class="summary-stat-value" id="manager-restaurant" style="font-size:26px">Restaurant</div>
+            <div class="summary-two-col">
+              <div class="summary-stat">
+                <div class="summary-stat-label">Collected</div>
+                <div class="summary-stat-value" id="manager-collected">€0.00</div>
+              </div>
+              <div class="summary-stat">
+                <div class="summary-stat-label">Remaining</div>
+                <div class="summary-stat-value" id="manager-remaining">€0.00</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="participant-stack" id="manager-participants-list"></div>
+
+          <div class="owner-actions">
+            <button class="btn btn-secondary" type="button" onclick="openGuestPage()">Open Guest Link Again</button>
+            <button class="btn btn-secondary" type="button" onclick="showDemoScreen('history')">My Split Bills</button>
+            <button class="btn btn-primary" type="button" onclick="finalizeSplitSession()">Pay Restaurant</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="demo-screen bunq-screen split-flow" id="demo-screen-history">
+        <div class="demo-status">
+          <div class="demo-time">11:04 ◐</div>
+          <div class="demo-icons">
+            <span>5G</span>
+            <span class="demo-pill"></span>
+          </div>
+        </div>
+        <div class="demo-island-pad"></div>
+        <div class="demo-content bunq-home-scroll" style="padding-bottom:16px">
+          <div class="demo-top-link" onclick="showDemoScreen('manager')">‹ Back</div>
+          <div class="proceed-title" style="text-align:left;margin:8px 0 8px">My Split Bills</div>
+          <div class="proceed-sub" style="text-align:left;margin-bottom:18px">Saved sessions for the bunq user who managed and paid the restaurant.</div>
+          <div class="history-stack" id="history-list"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="receipt-modal" id="receipt-modal">
+  <div class="receipt-modal-card">
+    <div class="receipt-modal-top">
+      <div>Original Receipt</div>
+      <button type="button" onclick="closeReceiptModal()">Close</button>
+    </div>
+    <div class="receipt-modal-body">
+      <img id="receipt-modal-image" src="./demo-assets/invoice-1.jpg" alt="Original receipt">
+    </div>
+  </div>
+</div>
+
+<div id="round-app" class="hidden">
+
+<header>
+  <div class="logo">round<span class="logo-dot">.</span></div>
+  <div class="account-badge" id="account-badge">connecting...</div>
+</header>
+
+<div class="stepper">
+  <div class="step active" id="step-1"><div class="step-num">1</div><div class="step-label">Scan</div></div>
+  <div class="step-line"></div>
+  <div class="step" id="step-2"><div class="step-num">2</div><div class="step-label">Assign</div></div>
+  <div class="step-line"></div>
+  <div class="step" id="step-3"><div class="step-num">3</div><div class="step-label">Collect</div></div>
+  <div class="step-line"></div>
+  <div class="step" id="step-4"><div class="step-num">4</div><div class="step-label">Done</div></div>
+</div>
+
+<main>
+
+<!-- ═══════════ SCREEN 1: SCAN ═══════════ -->
+<div class="screen active" id="screen-1">
+  <div class="section-title">Scan the bill</div>
+  <div class="section-sub">Upload a photo of the restaurant receipt</div>
+
+  <div class="upload-zone" id="upload-zone">
+    <div class="upload-icon">📷</div>
+    <div class="upload-text">Drop receipt here or tap to upload</div>
+    <div class="upload-sub">JPG or PNG — any angle</div>
+    <input type="file" id="file-input" accept="image/*" style="display:none">
+  </div>
+
+  <div id="scan-preview" style="display:none" class="card mt-2">
+    <img id="preview-img" class="receipt-img" src="" alt="receipt">
+    <div class="loading" id="scan-loading">
+      <div class="spinner"></div>
+      Reading receipt with AI...
+    </div>
+    <div id="scan-result" style="display:none">
+      <div class="card-label" id="restaurant-name"></div>
+      <div class="items-list" id="items-list"></div>
+      <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:0.82rem;color:var(--muted2)">Total</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:700;color:var(--bunq)" id="total-display"></span>
+      </div>
+      <button class="btn btn-primary btn-full mt-2" onclick="goToAssign()">Start splitting →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ SCREEN 2: ASSIGN ═══════════ -->
+<div class="screen" id="screen-2">
+  <div class="section-title">Who had what?</div>
+  <div class="section-sub">Add each person — voice or text</div>
+
+  <div class="summary-bar">
+    <div class="summary-item"><div class="summary-val" id="assign-total">€0</div><div class="summary-lbl">Total</div></div>
+    <div class="summary-item"><div class="summary-val" id="assign-assigned">€0</div><div class="summary-lbl">Assigned</div></div>
+    <div class="summary-item"><div class="summary-val" id="assign-remaining">€0</div><div class="summary-lbl">Remaining</div></div>
+    <div class="summary-item"><div class="summary-val" id="assign-count">0</div><div class="summary-lbl">People</div></div>
+  </div>
+
+  <div id="people-list"></div>
+
+  <div class="card" id="add-person-card">
+    <div class="card-label">Add person</div>
+    <div class="input-row">
+      <div class="input-group">
+        <label class="input-label">Name</label>
+        <input type="text" id="person-name" placeholder="e.g. Nithin">
+      </div>
+      <div class="input-group">
+        <label class="input-label">bunq email / phone</label>
+        <input type="text" id="person-contact" placeholder="name@bunq.com">
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('voice')" id="tab-voice">🎤 Voice</button>
+      <button class="tab" onclick="switchTab('text')" id="tab-text">⌨️ Text</button>
+    </div>
+
+    <div id="mode-voice">
+      <div style="text-align:center;padding:1rem 0">
+        <button class="record-btn idle" id="record-btn" onclick="toggleRecord()">🎙️</button>
+        <div style="margin-top:0.8rem;font-size:0.8rem;color:var(--muted2)" id="record-status">
+          Press to record — say your name and what you had
+        </div>
+        <div id="transcript-display" style="display:none;margin-top:0.8rem;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 14px;font-size:0.82rem;text-align:left;line-height:1.6"></div>
+      </div>
+    </div>
+
+    <div id="mode-text" style="display:none">
+      <div class="input-group">
+        <label class="input-label">What did you have?</label>
+        <input type="text" id="person-text" placeholder="e.g. caesar salad and sparkling water">
+      </div>
+    </div>
+
+    <button class="btn btn-primary btn-full mt-2" id="add-btn" onclick="addPerson()" disabled>
+      Record voice above to add
+    </button>
+  </div>
+
+  <div class="flex gap-2 mt-2">
+    <button class="btn btn-ghost" onclick="goBack(1)" style="flex:1">← Back</button>
+    <button class="btn btn-primary" onclick="goToCollect()" style="flex:2" id="collect-btn" disabled>
+      Send payment requests →
+    </button>
+  </div>
+</div>
+
+<!-- ═══════════ SCREEN 3: COLLECT ═══════════ -->
+<div class="screen" id="screen-3">
+  <div class="section-title">Collecting payments</div>
+  <div class="section-sub">Share the payment link with each person</div>
+
+  <div class="card">
+    <div class="pot-display">
+      <div class="pot-amount" id="pot-amount">€0.00</div>
+      <div class="pot-label" id="pot-label">of €0.00 collected</div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+  </div>
+
+  <div id="payment-list"></div>
+
+  <div class="flex gap-2 mt-2">
+    <button class="btn btn-ghost" onclick="triggerPoll()" style="flex:1">↻ Refresh</button>
+    <button class="btn btn-green btn-full" id="release-btn" onclick="releasePayment()" disabled style="flex:2">
+      🏦 Pay restaurant
+    </button>
+  </div>
+  <div style="text-align:center;margin-top:0.6rem">
+    <span class="text-muted">Releases automatically when everyone pays</span>
+  </div>
+</div>
+
+<!-- ═══════════ SCREEN 4: DONE ═══════════ -->
+<div class="screen" id="screen-4">
+  <div class="celebration">
+    <div class="celebration-emoji">🎉</div>
+    <div class="celebration-title">All settled!</div>
+    <div class="celebration-sub" id="done-sub">Restaurant has been paid.</div>
+  </div>
+  <div class="card mt-2" id="done-summary"></div>
+  <button class="btn btn-primary btn-full mt-2" onclick="startOver()">Split another bill</button>
+</div>
+
+</main>
+
+<!-- ═══════════ BUNQ-STYLE PAYMENT MODAL ═══════════ -->
+<div id="pay-modal">
+  <div class="pay-modal-inner">
+    <div class="pm-header">
+      <div class="pm-avatar">💳</div>
+      <div class="pm-sent-by">Payment request from <strong>round.</strong></div>
+      <div class="pm-name" id="pm-name">—</div>
+      <div class="pm-desc" id="pm-desc">Your share of the bill</div>
+      <div class="pm-amount" id="pm-amount">€0.00</div>
+    </div>
+    <div class="pm-body">
+      <div class="pm-options-label">Pay with</div>
+
+      <!-- Opens real bunq.me URL -->
+      <a id="pm-bunq-link" href="#" target="_blank" rel="noopener noreferrer" class="pm-option">
+        <div class="pm-option-icon">🏦</div>
+        <div class="pm-option-info">
+          <div class="pm-option-name">bunq</div>
+          <div class="pm-option-sub">Pay from your bunq account</div>
+        </div>
+        <div class="pm-option-arrow">›</div>
+      </a>
+
+      <a id="pm-ideal-link" href="#" target="_blank" rel="noopener noreferrer" class="pm-option">
+        <div class="pm-option-icon">🇳🇱</div>
+        <div class="pm-option-info">
+          <div class="pm-option-name">iDEAL</div>
+          <div class="pm-option-sub">Arrives immediately</div>
+        </div>
+        <div class="pm-option-arrow">›</div>
+      </a>
+
+      <a id="pm-card-link" href="#" target="_blank" rel="noopener noreferrer" class="pm-option">
+        <div class="pm-option-icon">💳</div>
+        <div class="pm-option-info">
+          <div class="pm-option-name">Credit or Debit card</div>
+          <div class="pm-option-sub">Arrives immediately</div>
+        </div>
+        <div class="pm-option-arrow">›</div>
+      </a>
+
+      <div class="divider">or scan QR</div>
+
+      <div class="pm-qr-section">
+        <div id="pm-qr-canvas"></div>
+        <div class="pm-qr-url" id="pm-qr-url"></div>
+      </div>
+
+      <button class="pm-close" onclick="closePayModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+const API = '';
+let sessionId   = null;
+let sessionData = null;
+let mediaRecorder = null;
+let inputMode   = 'voice';
+let pollInterval = null;
+let selectedInvoice = 'invoice-1';
+let selectedInvoiceSrc = './demo-assets/invoice-1.jpg';
+let guestDraft = null;
+let voicePresetIndex = 0;
+let splitDemoState = {
+  shareLink: 'https://bunq.demo/split/round-001',
+  participants: [],
+  history: [],
+  restaurantPaid: false,
+};
+
+const demoInvoices = {
+  'invoice-1': {
+    restaurant: 'DineFine Restaurant',
+    total: '€51.30',
+    receipt: './demo-assets/invoice-1.jpg',
+    items: [
+      { name: 'Caesar Salad', quantity: '2', price: '€24.00' },
+      { name: 'Grilled Salmon', quantity: '1', price: '€22.00' },
+      { name: 'Cheesecake', quantity: '1', price: '€7.50' },
+      { name: 'Sparkling Water', quantity: '2', price: '€6.00' }
+    ]
+  },
+  'invoice-2': {
+    restaurant: 'Harbor Lane Cafe',
+    total: '€31.39',
+    receipt: './demo-assets/invoice-2.jpg',
+    items: [
+      { name: 'Tacos Del Mal Shrimp', quantity: '1', price: '€14.98' },
+      { name: 'Especial Salad Chicken', quantity: '1', price: '€12.50' },
+      { name: 'Fountain Beverage', quantity: '1', price: '€1.99' }
+    ]
+  },
+  'invoice-3': {
+    restaurant: 'The Breakfast Club',
+    total: '€13.32',
+    receipt: './demo-assets/invoice-3.jpg',
+    items: [
+      { name: 'Chicken Waff Meal', quantity: '1', price: '€8.99' },
+      { name: 'Drinks', quantity: '2', price: '€3.78' }
+    ]
+  }
+};
+
+function showDemoScreen(name) {
+  document.querySelectorAll('.demo-screen').forEach(screen => screen.classList.remove('active'));
+  document.getElementById(`demo-screen-${name}`)?.classList.add('active');
+}
+
+function currentInvoice() {
+  return demoInvoices[selectedInvoice];
+}
+
+function parseMoney(value) {
+  if (!value) return 0;
+  const normalized = String(value).replace(/[€$,]/g, '').trim();
+  return parseFloat(normalized) || 0;
+}
+
+function formatMoney(value) {
+  return `€${Number(value || 0).toFixed(2)}`;
+}
+
+function selectInvoice(invoiceId) {
+  selectedInvoice = invoiceId;
+  selectedInvoiceSrc = demoInvoices[invoiceId]?.receipt || './demo-assets/invoice-1.jpg';
+  document.getElementById('receipt-modal-image').src = selectedInvoiceSrc;
+  openSplitBillEditor();
+}
+
+function renderOwnerItems() {
+  const invoice = currentInvoice();
+  const list = document.getElementById('owner-items-list');
+  if (!invoice || !list) return;
+  const accent = '#00d4aa';
+
+  list.innerHTML = '';
+  invoice.items.forEach((item, index) => {
+    list.innerHTML += `
+      <div class="editable-item-card" style="--item-accent:${accent}">
+        <div class="editable-item-head">
+          <div class="editable-item-index">Item ${index + 1}</div>
+        </div>
+        <div class="editable-grid">
+          <div class="editable-field">
+            <label>Dish</label>
+            <input type="text" value="${item.name}">
+          </div>
+          <div class="editable-field">
+            <label>Count</label>
+            <input type="text" value="${item.quantity}">
+          </div>
+          <div class="editable-field">
+            <label>Line Total</label>
+            <input type="text" value="${item.price}">
+          </div>
+        </div>
+      </div>`;
+  });
+
+  document.getElementById('owner-restaurant-name').textContent = invoice.restaurant;
+  document.getElementById('owner-total-input').value = invoice.total;
+  document.getElementById('owner-item-count').textContent = invoice.items.length;
+}
+
+function openSplitBillEditor() {
+  const status = document.getElementById('split-bill-status');
+  if (status) {
+    status.textContent = 'Opening Round split flow...';
+  }
+  window.location.href = '/split-bill';
+}
+
+function updateOwnerSummary() {
+  const itemCount = document.querySelectorAll('#owner-items-list .editable-item-card').length;
+  const itemCountEl = document.getElementById('owner-item-count');
+  if (itemCountEl) itemCountEl.textContent = itemCount;
+}
+
+function openReceiptModal() {
+  document.getElementById('receipt-modal-image').src = selectedInvoiceSrc;
+  document.getElementById('receipt-modal').classList.add('open');
+}
+
+function closeReceiptModal() {
+  document.getElementById('receipt-modal').classList.remove('open');
+}
+
+function saveOwnerDraft() {
+  const invoice = currentInvoice();
+  if (!invoice) return;
+  invoice.total = document.getElementById('owner-total-input').value;
+
+  const rows = Array.from(document.querySelectorAll('#owner-items-list .editable-item-card'));
+  invoice.items = rows.map(row => {
+    const inputs = row.querySelectorAll('input');
+    return {
+      name: inputs[0]?.value || '',
+      quantity: inputs[1]?.value || '',
+      price: inputs[2]?.value || ''
+    };
+  });
+
+  document.getElementById('owner-item-count').textContent = invoice.items.length;
+  toast('Bill owner draft saved', 'success');
+}
+
+function ensureSplitSession() {
+  const invoice = currentInvoice();
+  splitDemoState.shareLink = `https://bunq.demo/split/${selectedInvoice}`;
+  splitDemoState.restaurantPaid = false;
+  splitDemoState.invoiceId = selectedInvoice;
+  splitDemoState.restaurant = invoice.restaurant;
+  splitDemoState.total = invoice.total;
+}
+
+function renderDemoQr() {
+  const box = document.getElementById('demo-qr-box');
+  if (!box) return;
+  box.innerHTML = '';
+  if (typeof QRCode !== 'undefined') {
+    new QRCode(box, {
+      text: splitDemoState.shareLink,
+      width: 170,
+      height: 170,
+      colorDark: '#00d4aa',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H,
+    });
+  } else {
+    box.textContent = 'QR';
+    box.style.fontSize = '48px';
+    box.style.color = '#00d4aa';
+  }
+}
+
+function goToShareScreen() {
+  saveOwnerDraft();
+  ensureSplitSession();
+  document.getElementById('share-restaurant-title').textContent = splitDemoState.restaurant;
+  document.getElementById('share-total').textContent = currentInvoice().total;
+  document.getElementById('share-joined').textContent = splitDemoState.participants.length;
+  document.getElementById('share-link-text').textContent = splitDemoState.shareLink;
+  renderDemoQr();
+  showDemoScreen('share');
+}
+
+function copyShareLink() {
+  const text = splitDemoState.shareLink;
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => {});
+  }
+  toast('Share link copied', 'success');
+}
+
+function openGuestPage() {
+  renderGuestSelection();
+  showDemoScreen('guest');
+}
+
+function renderGuestSelection() {
+  const invoice = currentInvoice();
+  const list = document.getElementById('guest-items-list');
+  if (!invoice || !list) return;
+  document.getElementById('guest-restaurant-sub').textContent = `${invoice.restaurant} • Pick the items you had and pay your share.`;
+
+  list.innerHTML = '';
+  invoice.items.forEach((item, index) => {
+    list.innerHTML += `
+      <div class="guest-item-card">
+        <div class="guest-item-row">
+          <div>
+            <div class="guest-item-name">${item.name}</div>
+            <div class="guest-item-sub">${item.quantity} available • ${item.price}</div>
+          </div>
+          <div class="qty-stepper">
+            <button type="button" onclick="stepGuestQty(${index}, -1)">−</button>
+            <input id="guest-qty-${index}" type="text" value="0" oninput="updateGuestSubtotal()">
+            <button type="button" onclick="stepGuestQty(${index}, 1)">+</button>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  document.getElementById('guest-name-input').value = '';
+  document.getElementById('guest-note-input').value = '';
+  document.getElementById('guest-subtotal').textContent = '€0.00';
+}
+
+function stepGuestQty(index, delta) {
+  const invoice = currentInvoice();
+  const input = document.getElementById(`guest-qty-${index}`);
+  const maxQty = parseInt(invoice.items[index].quantity, 10) || 0;
+  let next = (parseInt(input.value, 10) || 0) + delta;
+  if (next < 0) next = 0;
+  if (next > maxQty) next = maxQty;
+  input.value = next;
+  updateGuestSubtotal();
+}
+
+function updateGuestSubtotal() {
+  const invoice = currentInvoice();
+  let subtotal = 0;
+  invoice.items.forEach((item, index) => {
+    const qty = parseInt(document.getElementById(`guest-qty-${index}`)?.value, 10) || 0;
+    const available = parseInt(item.quantity, 10) || 0;
+    const safeQty = Math.min(Math.max(qty, 0), available);
+    const priceEach = parseMoney(item.price) / Math.max(available, 1);
+    subtotal += safeQty * priceEach;
+  });
+  document.getElementById('guest-subtotal').textContent = formatMoney(subtotal);
+}
+
+function simulateGuestVoice() {
+  const presets = {
+    'invoice-1': { name: 'Alex', note: 'I had one grilled salmon and one cheesecake.', quantities: [0, 1, 1, 0] },
+    'invoice-2': { name: 'Noor', note: 'I had the tacos and the fountain beverage.', quantities: [1, 0, 1] },
+    'invoice-3': { name: 'Sam', note: 'I had the chicken meal and one drink.', quantities: [1, 1] },
+  };
+  const preset = presets[selectedInvoice];
+  if (!preset) return;
+  document.getElementById('guest-name-input').value = preset.name;
+  document.getElementById('guest-note-input').value = preset.note;
+  preset.quantities.forEach((qty, index) => {
+    const input = document.getElementById(`guest-qty-${index}`);
+    if (input) input.value = qty;
+  });
+  updateGuestSubtotal();
+  toast('Voice selection applied', 'success');
+}
+
+function continueGuestToPay() {
+  const invoice = currentInvoice();
+  const name = document.getElementById('guest-name-input').value.trim();
+  if (!name) {
+    toast('Enter your name first', 'error');
+    return;
+  }
+
+  const items = [];
+  let total = 0;
+  invoice.items.forEach((item, index) => {
+    const qty = parseInt(document.getElementById(`guest-qty-${index}`)?.value, 10) || 0;
+    if (qty > 0) {
+      const available = parseInt(item.quantity, 10) || 0;
+      const priceEach = parseMoney(item.price) / Math.max(available, 1);
+      const lineTotal = qty * priceEach;
+      items.push({ name: item.name, quantity: qty, total: lineTotal });
+      total += lineTotal;
+    }
+  });
+
+  if (!items.length) {
+    toast('Select at least one item', 'error');
+    return;
+  }
+
+  guestDraft = {
+    name,
+    note: document.getElementById('guest-note-input').value.trim(),
+    items,
+    total,
+  };
+
+  document.getElementById('guestpay-name').textContent = guestDraft.name;
+  document.getElementById('guestpay-items').textContent = guestDraft.items.map(item => `${item.quantity}x ${item.name}`).join(' • ');
+  document.getElementById('guestpay-total').textContent = formatMoney(guestDraft.total);
+  showDemoScreen('guestpay');
+}
+
+function submitGuestClaim(markPaid) {
+  if (!guestDraft) return;
+  splitDemoState.participants.push({
+    name: guestDraft.name,
+    note: guestDraft.note,
+    items: guestDraft.items,
+    total: guestDraft.total,
+    paid: markPaid,
+    submittedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    paidAt: markPaid ? new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : null,
+  });
+  guestDraft = null;
+  renderManagerStatus();
+  toast(markPaid ? 'Guest paid successfully' : 'Guest submitted selection', 'success');
+  showDemoScreen('manager');
+}
+
+function renderManagerStatus() {
+  const invoice = currentInvoice();
+  const list = document.getElementById('manager-participants-list');
+  if (!invoice || !list) return;
+
+  let collected = 0;
+  splitDemoState.participants.forEach(person => {
+    if (person.paid) collected += person.total;
+  });
+  const remaining = Math.max(parseMoney(invoice.total) - collected, 0);
+
+  document.getElementById('manager-restaurant').textContent = invoice.restaurant;
+  document.getElementById('manager-collected').textContent = formatMoney(collected);
+  document.getElementById('manager-remaining').textContent = formatMoney(remaining);
+  document.getElementById('share-joined').textContent = splitDemoState.participants.length;
+
+  list.innerHTML = '';
+  if (!splitDemoState.participants.length) {
+    list.innerHTML = `
+      <div class="participant-card">
+        <div class="participant-name">No guests yet</div>
+        <div class="participant-meta">Share the QR or link to let people join this split.</div>
+      </div>`;
+  } else {
+    splitDemoState.participants.forEach(person => {
+      list.innerHTML += `
+        <div class="participant-card">
+          <div class="participant-top">
+            <div>
+              <div class="participant-name">${person.name}</div>
+              <div class="participant-meta">Submitted ${person.submittedAt}${person.paidAt ? ` • Paid ${person.paidAt}` : ''}</div>
+            </div>
+            <div>
+              <div class="status-pill ${person.paid ? 'paid' : 'pending'}">${person.paid ? 'Paid' : 'Pending'}</div>
+              <div style="margin-top:8px;font-size:18px;font-weight:700;text-align:right">${formatMoney(person.total)}</div>
+            </div>
+          </div>
+          <div class="claim-tags">
+            ${person.items.map(item => `<span class="claim-tag">${item.quantity}x ${item.name}</span>`).join('')}
+          </div>
+          ${person.note ? `<div class="participant-meta" style="margin-top:12px">${person.note}</div>` : ''}
+        </div>`;
+    });
+  }
+
+  const allPaid = remaining <= 0 && splitDemoState.participants.length > 0;
+  const banner = document.getElementById('manager-complete-banner');
+  if (allPaid) {
+    banner.innerHTML = `
+      <div class="status-banner complete">
+        <div style="font-size:18px;font-weight:700">Ready to settle</div>
+        <div class="participant-meta" style="color:inherit;margin-top:6px">Everyone has paid enough to cover the bill. The organizer can pay the restaurant now.</div>
+      </div>`;
+  } else {
+    banner.innerHTML = '';
+  }
+}
+
+function finalizeSplitSession() {
+  if (!splitDemoState.participants.length) {
+    toast('Add at least one participant first', 'error');
+    return;
+  }
+  const invoice = currentInvoice();
+  const collected = splitDemoState.participants.reduce((sum, person) => sum + (person.paid ? person.total : 0), 0);
+  const summary = {
+    restaurant: invoice.restaurant,
+    total: invoice.total,
+    people: splitDemoState.participants.length,
+    collected: formatMoney(collected),
+    settledAt: new Date().toLocaleDateString(),
+  };
+  splitDemoState.restaurantPaid = true;
+  splitDemoState.history.unshift(summary);
+  renderHistory();
+  toast('Restaurant paid and split saved', 'success');
+  showDemoScreen('history');
+}
+
+function renderHistory() {
+  const list = document.getElementById('history-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (!splitDemoState.history.length) {
+    list.innerHTML = `
+      <div class="history-card">
+        <div class="history-title">No saved split bills yet</div>
+        <div class="history-sub">Once the organizer pays the restaurant, the completed session will appear here.</div>
+      </div>`;
+    return;
+  }
+
+  splitDemoState.history.forEach(entry => {
+    list.innerHTML += `
+      <div class="history-card">
+        <div class="history-title">${entry.restaurant}</div>
+        <div class="history-sub">${entry.settledAt} • ${entry.people} participants</div>
+        <div class="summary-two-col" style="margin-bottom:0">
+          <div class="summary-stat">
+            <div class="summary-stat-label">Bill Total</div>
+            <div class="summary-stat-value">${entry.total}</div>
+          </div>
+          <div class="summary-stat">
+            <div class="summary-stat-label">Collected</div>
+            <div class="summary-stat-value">${entry.collected}</div>
+          </div>
+        </div>
+      </div>`;
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+window.addEventListener('load', async () => {
+  showDemoScreen('home');
+  renderOwnerItems();
+  renderManagerStatus();
+  renderHistory();
+  try {
+    const r = await fetch(`${API}/account`);
+    const d = await r.json();
+    if (d.ok && d.account) {
+      const acc = d.account;
+      document.getElementById('account-badge').textContent =
+        acc.email || acc.iban?.slice(-8) || 'connected';
+    }
+  } catch(e) {
+    document.getElementById('account-badge').textContent = 'offline';
+  }
+
+  const zone = document.getElementById('upload-zone');
+  const fi   = document.getElementById('file-input');
+  zone.addEventListener('click', () => fi.click());
+  zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('dragover'); handleFile(e.dataTransfer.files[0]); });
+  fi.addEventListener('change', () => handleFile(fi.files[0]));
+
+  ['person-name','person-contact','person-text'].forEach(id =>
+    document.getElementById(id)?.addEventListener('input', checkAddReady)
+  );
+});
+
+// ── NAVIGATION ─────────────────────────────────────────────────────────────
+function showScreen(n) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(`screen-${n}`).classList.add('active');
+  document.querySelectorAll('.step').forEach((s, i) => {
+    s.classList.remove('active','done');
+    if (i+1 < n) s.classList.add('done');
+    if (i+1 === n) s.classList.add('active');
+  });
+  window.scrollTo({ top:0, behavior:'smooth' });
+}
+function goBack(n) { showScreen(n); }
+
+// ── SCREEN 1: SCAN ─────────────────────────────────────────────────────────
+async function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('preview-img').src = e.target.result;
+    document.getElementById('scan-preview').style.display = 'block';
+    document.getElementById('scan-loading').style.display = 'flex';
+    document.getElementById('scan-result').style.display  = 'none';
+    document.getElementById('upload-zone').style.display  = 'none';
+  };
+  reader.readAsDataURL(file);
+
+  const form = new FormData();
+  form.append('image', file);
+
+  try {
+    const resp = await fetch(`${API}/scan`, { method:'POST', body:form });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.detail || 'Scan failed');
+
+    sessionId   = data.session_id;
+    sessionData = data;
+
+    document.getElementById('restaurant-name').textContent = `🍽️ ${data.restaurant}`;
+    document.getElementById('total-display').textContent   = `€${(data.total||0).toFixed(2)}`;
+
+    const list = document.getElementById('items-list');
+    list.innerHTML = '';
+    (data.items||[]).forEach(item => {
+      list.innerHTML += `
+        <div class="item-row">
+          <span>${item.name}</span>
+          <span class="item-price">€${(item.price||0).toFixed(2)}</span>
+        </div>`;
+    });
+
+    document.getElementById('scan-loading').style.display = 'none';
+    document.getElementById('scan-result').style.display  = 'block';
+    toast('Receipt scanned ✅', 'success');
+  } catch(e) {
+    document.getElementById('scan-loading').style.display = 'none';
+    document.getElementById('scan-preview').style.display = 'none';
+    document.getElementById('upload-zone').style.display  = 'block';
+    toast(e.message, 'error');
+  }
+}
+
+function goToAssign() {
+  if (!sessionId) return;
+  updateAssignSummary();
+  showScreen(2);
+}
+
+// ── SCREEN 2: ASSIGN ───────────────────────────────────────────────────────
+function switchTab(mode) {
+  inputMode = mode;
+  document.getElementById('tab-voice').classList.toggle('active', mode === 'voice');
+  document.getElementById('tab-text').classList.toggle('active',  mode === 'text');
+  document.getElementById('mode-voice').style.display = mode === 'voice' ? 'block' : 'none';
+  document.getElementById('mode-text').style.display  = mode === 'text'  ? 'block' : 'none';
+  checkAddReady();
+}
+
+function checkAddReady() {
+  const name    = document.getElementById('person-name').value.trim();
+  const contact = document.getElementById('person-contact').value.trim();
+  const text    = document.getElementById('person-text').value.trim();
+  const btn     = document.getElementById('add-btn');
+  if (inputMode === 'text') {
+    btn.disabled    = !(name && contact && text);
+    btn.textContent = 'Add to bill';
+  } else {
+    btn.disabled    = true;
+    btn.textContent = 'Record voice above to add';
+  }
+}
+
+async function toggleRecord() {
+  const btn = document.getElementById('record-btn');
+
+  if (mediaRecorder && mediaRecorder.state === 'recording') {
+    mediaRecorder.stop();
+    return;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const chunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      btn.className   = 'record-btn idle';
+      btn.textContent = '🎙️';
+
+      const name    = document.getElementById('person-name').value.trim();
+      const contact = document.getElementById('person-contact').value.trim();
+
+      if (!name || !contact) {
+        document.getElementById('record-status').textContent = '⚠️ Fill in name and contact first, then record';
+        return;
+      }
+
+      document.getElementById('record-status').textContent = 'Processing...';
+      const blob = new Blob(chunks, { type:'audio/webm' });
+      const form = new FormData();
+      form.append('session_id', sessionId);
+      form.append('name', name);
+      form.append('contact', contact);
+      form.append('audio', blob, 'voice.webm');
+
+      try {
+        const resp = await fetch(`${API}/assign/voice`, { method:'POST', body:form });
+        const data = await resp.json();
+        if (!data.ok) throw new Error(data.detail || 'Failed');
+
+        const items = (data.items||[]).map(i => i.name).join(', ');
+        document.getElementById('transcript-display').style.display = 'block';
+        document.getElementById('transcript-display').innerHTML =
+          `<strong>Heard:</strong> "${data.transcript||''}"<br>
+           <strong>Matched:</strong> ${items || '⚠️ nothing — try text mode'}<br>
+           <strong>Amount:</strong> €${(data.amount||0).toFixed(2)}`;
+
+        if (!data.items || data.items.length === 0) {
+          document.getElementById('record-status').textContent = 'Nothing matched — try Text mode';
+          return;
+        }
+
+        document.getElementById('record-status').textContent = 'Added! Record next person or proceed.';
+        renderPerson(data);
+        updateAssignSummary();
+        resetAddForm();
+        toast(`${name} added — €${(data.amount||0).toFixed(2)}`, 'success');
+      } catch(e) {
+        document.getElementById('record-status').textContent = `Error: ${e.message}`;
+        toast(e.message, 'error');
+      }
+    };
+
+    mediaRecorder.start();
+    btn.className   = 'record-btn recording';
+    btn.textContent = '⏹';
+    document.getElementById('record-status').textContent = '🔴 Recording… tap to stop';
+    document.getElementById('transcript-display').style.display = 'none';
+  } catch(e) {
+    const msg = e.name === 'NotAllowedError'
+      ? 'Microphone permission denied — allow it in your browser'
+      : `Mic error: ${e.message}`;
+    document.getElementById('record-status').textContent = msg;
+    toast(msg, 'error');
+  }
+}
+
+async function addPerson() {
+  const name    = document.getElementById('person-name').value.trim();
+  const contact = document.getElementById('person-contact').value.trim();
+  if (!name || !contact) { toast('Enter name and contact', 'error'); return; }
+
+  if (inputMode === 'text') {
+    const text = document.getElementById('person-text').value.trim();
+    if (!text) { toast('Enter what they had', 'error'); return; }
+
+    const btn = document.getElementById('add-btn');
+    btn.disabled    = true;
+    btn.textContent = 'Matching…';
+
+    try {
+      const resp = await fetch(`${API}/assign/text`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: sessionId, name, contact, text }),
+      });
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.detail || 'Failed');
+
+      if (!data.items || data.items.length === 0) {
+        toast(`No items matched for "${text}" — check spelling`, 'error');
+        return;
+      }
+
+      renderPerson(data);
+      updateAssignSummary();
+      resetAddForm();
+      toast(`${name} added — €${(data.amount||0).toFixed(2)}`, 'success');
+    } catch(e) {
+      toast(e.message, 'error');
+    } finally {
+      btn.disabled    = false;
+      btn.textContent = 'Add to bill';
+    }
+  }
+}
+
+function renderPerson(data) {
+  const list  = document.getElementById('people-list');
+  const items = (data.items||[]).map(i => i.name||i).join(' · ');
+  list.innerHTML += `
+    <div class="person-card" id="pc-${data.person_id}">
+      <div class="person-header">
+        <span class="person-name">${data.name}</span>
+        <span class="person-amount">€${(data.amount||0).toFixed(2)}</span>
+      </div>
+      <div class="person-items">${items || '—'}</div>
+      <span class="badge badge-pending">⏳ Pending</span>
+    </div>`;
+}
+
+function updateAssignSummary() {
+  if (!sessionData) return;
+  const total    = sessionData.total || 0;
+  const assigned = Array.from(document.querySelectorAll('.person-card'))
+    .reduce((acc, c) => acc + parseFloat(c.querySelector('.person-amount')?.textContent?.replace('€','') || 0), 0);
+
+  document.getElementById('assign-total').textContent     = `€${total.toFixed(2)}`;
+  document.getElementById('assign-assigned').textContent  = `€${assigned.toFixed(2)}`;
+  document.getElementById('assign-remaining').textContent = `€${Math.max(0, total - assigned).toFixed(2)}`;
+  document.getElementById('assign-count').textContent     = document.querySelectorAll('.person-card').length;
+  document.getElementById('collect-btn').disabled         = document.querySelectorAll('.person-card').length === 0;
+}
+
+function resetAddForm() {
+  document.getElementById('person-name').value    = '';
+  document.getElementById('person-contact').value = '';
+  document.getElementById('person-text').value    = '';
+  document.getElementById('transcript-display').style.display = 'none';
+  document.getElementById('record-status').textContent = 'Press to record — say your name and what you had';
+  checkAddReady();
+}
+
+async function goToCollect() {
+  const btn = document.getElementById('collect-btn');
+  btn.disabled    = true;
+  btn.textContent = 'Sending…';
+
+  try {
+    const resp = await fetch(`${API}/collect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ session_id: sessionId }),
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.detail || 'Failed');
+
+    showScreen(3);
+    renderPaymentList(data.requests || []);
+    startPolling();
+    toast('Payment requests sent 🚀', 'success');
+  } catch(e) {
+    toast(e.message, 'error');
+    btn.disabled    = false;
+    btn.textContent = 'Send payment requests →';
+  }
+}
+
+// ── SCREEN 3: COLLECT ──────────────────────────────────────────────────────
+function renderPaymentList(requests) {
+  const list = document.getElementById('payment-list');
+  list.innerHTML = '';
+  requests.forEach(req => {
+    const nameKey = (req.name||'').replace(/\s/g,'_');
+    list.innerHTML += `
+      <div class="pay-card" id="pay-${nameKey}">
+        <div class="person-header" style="margin-bottom:0.6rem">
+          <span class="person-name">${req.name}</span>
+          <span class="person-amount">€${parseFloat(req.amount||0).toFixed(2)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="badge badge-sent" id="status-${nameKey}">📤 Request sent</span>
+          <button class="btn btn-primary" style="padding:8px 16px;font-size:0.8rem"
+            onclick="openPayModal('${req.name}', ${parseFloat(req.amount||0)}, '${req.url||''}', '${req.portal_url||''}')">
+            💳 Pay now
+          </button>
+        </div>
+      </div>`;
+  });
+  updatePot(0, sessionData?.total || 0);
+}
+
+function startPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(refreshStatus, 6000);
+  refreshStatus();
+}
+
+async function refreshStatus() {
+  if (!sessionId) return;
+  try {
+    const resp = await fetch(`${API}/session/${sessionId}`);
+    const data = await resp.json();
+    if (!data.ok) return;
+
+    updatePot(data.pot, data.target);
+
+    (data.session?.people||[]).forEach(p => {
+      const key  = p.name.replace(/\s/g,'_');
+      const card  = document.getElementById(`pay-${key}`);
+      const badge = document.getElementById(`status-${key}`);
+      if (p.paid && card) {
+        card.classList.add('paid');
+        if (badge) { badge.className = 'badge badge-paid'; badge.textContent = '✅ Paid'; }
+        // hide pay button
+        const btn = card.querySelector('.btn-primary');
+        if (btn) btn.style.display = 'none';
+      }
+    });
+
+    if (data.all_paid && !data.session?.released) {
+      clearInterval(pollInterval);
+      document.getElementById('release-btn').disabled = false;
+      toast('Everyone paid! Releasing…', 'success');
+      setTimeout(releasePayment, 1500);
+    }
+  } catch(e) { console.warn('Poll error:', e); }
+}
+
+function updatePot(pot, target) {
+  const pct = target > 0 ? Math.min(100, (pot/target)*100) : 0;
+  document.getElementById('pot-amount').textContent    = `€${parseFloat(pot||0).toFixed(2)}`;
+  document.getElementById('pot-label').textContent     = `of €${parseFloat(target||0).toFixed(2)} collected`;
+  document.getElementById('progress-fill').style.width = `${pct}%`;
+  document.getElementById('release-btn').disabled      = pct < 100;
+}
+
+async function triggerPoll() {
+  try {
+    await fetch(`${API}/poll/${sessionId}`, { method:'POST' });
+    await refreshStatus();
+    toast('Refreshed', 'success');
+  } catch(e) { toast('Poll failed', 'error'); }
+}
+
+async function releasePayment() {
+  const btn = document.getElementById('release-btn');
+  btn.disabled    = true;
+  btn.textContent = 'Releasing…';
+
+  try {
+    const resp = await fetch(`${API}/release/${sessionId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id:       sessionId,
+        restaurant_email: 'sugardaddy@bunq.com',
+        restaurant_name:  sessionData?.restaurant || 'Restaurant',
+      }),
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.detail || 'Release failed');
+
+    clearInterval(pollInterval);
+    showScreen(4);
+
+    document.getElementById('done-sub').textContent =
+      `€${parseFloat(data.amount||0).toFixed(2)} sent to ${sessionData?.restaurant||'restaurant'}.`;
+
+    document.getElementById('done-summary').innerHTML = `
+      <div class="card-label">Session summary</div>
+      <div class="item-row"><span>Restaurant</span><span>${sessionData?.restaurant||'—'}</span></div>
+      <div class="item-row" style="margin-top:6px"><span>Total collected</span>
+        <span style="font-family:'JetBrains Mono',monospace;color:var(--bunq)">€${parseFloat(data.amount||0).toFixed(2)}</span></div>
+      <div class="item-row" style="margin-top:6px"><span>Session</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:var(--muted2)">${sessionId}</span></div>`;
+
+    toast('🎉 Done!', 'success');
+  } catch(e) {
+    btn.disabled    = false;
+    btn.textContent = '🏦 Pay restaurant';
+    toast(e.message, 'error');
+  }
+}
+
+// ── BUNQ PAYMENT MODAL ─────────────────────────────────────────────────────
+function openPayModal(name, amount, bunqUrl, portalUrl) {
+  document.getElementById('pm-name').textContent   = name;
+  document.getElementById('pm-desc').textContent   = `Your share of the bill at ${sessionData?.restaurant || 'the restaurant'}`;
+  document.getElementById('pm-amount').textContent = `€${parseFloat(amount||0).toFixed(2)}`;
+
+  // All three payment options point to the same bunq.me link
+  // (bunq.me lets users choose their payment method)
+  const url = bunqUrl || portalUrl || '#';
+  document.getElementById('pm-bunq-link').href  = url;
+  document.getElementById('pm-ideal-link').href = url;
+  document.getElementById('pm-card-link').href  = url;
+
+  // Disable options if no real URL
+  const noUrl = !bunqUrl || bunqUrl === '#';
+  ['pm-bunq-link','pm-ideal-link','pm-card-link'].forEach(id => {
+    const el = document.getElementById(id);
+    if (noUrl) { el.style.opacity='0.4'; el.style.pointerEvents='none'; }
+    else       { el.style.opacity='1';   el.style.pointerEvents='auto'; }
+  });
+
+  // QR code
+  const canvas = document.getElementById('pm-qr-canvas');
+  canvas.innerHTML = '';
+  document.getElementById('pm-qr-url').textContent = url !== '#' ? url : 'No payment link available';
+
+  if (url && url !== '#') {
+    new QRCode(canvas, {
+      text:         url,
+      width:        160,
+      height:       160,
+      colorDark:    '#00d4aa',
+      colorLight:   '#1a1a2e',
+      correctLevel: QRCode.CorrectLevel.H,
+    });
+  }
+
+  document.getElementById('pay-modal').classList.add('open');
+}
+
+function closePayModal() {
+  document.getElementById('pay-modal').classList.remove('open');
+}
+
+document.getElementById('pay-modal').addEventListener('click', e => {
+  if (e.target === document.getElementById('pay-modal')) closePayModal();
+});
+
+// ── TOAST ──────────────────────────────────────────────────────────────────
+function toast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = `show ${type}`;
+  setTimeout(() => el.classList.remove('show', type), 3200);
+}
+
+// ── RESET ──────────────────────────────────────────────────────────────────
+function startOver() {
+  sessionId = null; sessionData = null;
+  if (pollInterval) clearInterval(pollInterval);
+  document.getElementById('upload-zone').style.display  = 'block';
+  document.getElementById('scan-preview').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  document.getElementById('items-list').innerHTML   = '';
+  document.getElementById('people-list').innerHTML  = '';
+  document.getElementById('payment-list').innerHTML = '';
+  document.getElementById('done-summary').innerHTML = '';
+  resetAddForm();
+  updateAssignSummary();
+  showScreen(1);
+}
+</script>
+</div>
+</body>
+</html>

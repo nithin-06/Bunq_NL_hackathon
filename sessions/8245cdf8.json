@@ -1,0 +1,92 @@
+{
+  "id": "8245cdf8",
+  "created": "2026-04-25T13:29:12.550134",
+  "restaurant_name": "Dinefine Restaurant",
+  "restaurant_email": "sugardaddy@bunq.com",
+  "currency": "USD",
+  "items": [
+    {
+      "name": "2X Caesar Salad",
+      "price": 24.0
+    },
+    {
+      "name": "Grilled Salmon",
+      "price": 22.0
+    },
+    {
+      "name": "Cheesecake",
+      "price": 7.5
+    },
+    {
+      "name": "2X Sparkling Water",
+      "price": 6.0
+    }
+  ],
+  "total": 51.3,
+  "pot": 0.0,
+  "people": [
+    {
+      "id": "2b8b24",
+      "name": "Nithin",
+      "items": [
+        {
+          "claim_id": "0:0",
+          "name": "Caesar Salad",
+          "price": 12.0,
+          "receipt_idx": 0,
+          "unit_idx": 0,
+          "original_name": "2X Caesar Salad"
+        },
+        {
+          "claim_id": "1:0",
+          "name": "Grilled Salmon",
+          "price": 22.0,
+          "receipt_idx": 1,
+          "unit_idx": 0,
+          "original_name": "Grilled Salmon"
+        }
+      ],
+      "amount": 34.0,
+      "contact": "123@gmail.com",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null,
+      "source_mode": "voice",
+      "source_text": "I had a Caesar salad in the grilled salmon.",
+      "transcript": "I had a Caesar salad in the grilled salmon."
+    },
+    {
+      "id": "8b35b0",
+      "name": "Lara",
+      "items": [
+        {
+          "claim_id": "3:0",
+          "name": "Sparkling Water",
+          "price": 3.0,
+          "receipt_idx": 3,
+          "unit_idx": 0,
+          "original_name": "2X Sparkling Water"
+        },
+        {
+          "claim_id": "3:1",
+          "name": "Sparkling Water",
+          "price": 3.0,
+          "receipt_idx": 3,
+          "unit_idx": 1,
+          "original_name": "2X Sparkling Water"
+        }
+      ],
+      "amount": 6.0,
+      "contact": "123@gmail.com",
+      "paid": false,
+      "request_id": null,
+      "bunqme_url": null,
+      "paid_at": null,
+      "source_mode": "text",
+      "source_text": "2 Sparkling water and cheese cake"
+    }
+  ],
+  "status": "assigning",
+  "released": false
+}
